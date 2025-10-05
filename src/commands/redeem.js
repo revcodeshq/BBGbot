@@ -10,13 +10,12 @@ const logger = require('../utils/logger');
 const User = require('../database/models.User'); 
 
 // Configuration for the Whiteout Survival API
-const SECRET = "tB87#kPtkxqOS2"; // The secret key for signing requests
+const SECRET = process.env.WOS_API_SECRET || "tB87#kPtkxqOS2"; // The secret key for signing requests
 const API_BASE_URL = "https://wos-giftcode-api.centurygame.com/api";
 const WEB_BASE_URL = "https://wos-giftcode.centurygame.com"; // Base URL for the CAPTCHA image/web interface
 
-// --- 2CAPTCHA CONFIGURATION (User Must Fill) ---
-// !!! IMPORTANT: REPLACE THIS PLACEHOLDER WITH YOUR ACTUAL 2CAPTCHA API KEY !!!
-const TWO_CAPTCHA_API_KEY = "0f7d771d1badca4a914ecb51f5d024b1";
+// --- 2CAPTCHA CONFIGURATION ---
+const TWO_CAPTCHA_API_KEY = process.env.TWO_CAPTCHA_API_KEY;
 const TWO_CAPTCHA_IN_URL = "http://2captcha.com/in.php";
 const TWO_CAPTCHA_RES_URL = "http://2captcha.com/res.php";
 // --- END 2CAPTCHA CONFIGURATION ---
@@ -212,8 +211,8 @@ async function getCaptchaImage(fid) {
  * Solves the CAPTCHA using the 2Captcha API.
  */
 async function solveCaptcha2Captcha(base64Data) {
-    if (TWO_CAPTCHA_API_KEY === "YOUR_2CAPTCHA_API_KEY_HERE") {
-        console.error("2Captcha API Key is not set. Cannot solve CAPTCHA.");
+    if (!TWO_CAPTCHA_API_KEY) {
+        console.error("2Captcha API Key is not set in environment variables. Cannot solve CAPTCHA.");
         return null;
     }
     

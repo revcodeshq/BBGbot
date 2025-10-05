@@ -74,12 +74,14 @@ const Announcement = require('./src/database/models.Announcements');
 
 
 
-// Assuming necessary imports (Announcement, client, logger) are available in the scope where this function is defined.
-// Example: const Announcement = require('./database/models.Announcements');
-// Example: const logger = require('./utils/logger');
-// NOTE: Ensure discord.js's EmbedBuilder is imported/available in the execution scope.
-const { EmbedBuilder } = require('discord.js'); // Assuming this line is needed in this file's scope.
+const { EmbedBuilder } = require('discord.js');
 
+/**
+ * Checks and processes scheduled announcements
+ * Handles main announcements and warning messages (15m, 10m, 5m before)
+ * Includes spam protection with 2-minute cooldown between sends
+ * @param {Client} client - Discord.js client instance
+ */
 async function checkSchedules(client) {
     const now = new Date();
     

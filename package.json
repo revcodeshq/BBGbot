@@ -1,4 +1,38 @@
 {
+  "name": "bbg-discord-bot",
+  "version": "1.0.0",
+  "description": "Advanced Discord bot for BBG Alliance with game integration, scheduling, giveaways, and AI-powered features",
+  "main": "index.js",
+  "author": "Rev",
+  "license": "MIT",
+  "keywords": [
+    "discord",
+    "bot",
+    "discord.js",
+    "whiteout-survival",
+    "game-integration",
+    "mongodb",
+    "ai",
+    "gemini",
+    "scheduling",
+    "giveaways"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/bbg-discord-bot.git"
+  },
+  "bugs": {
+    "url": "https://github.com/yourusername/bbg-discord-bot/issues"
+  },
+  "homepage": "https://github.com/yourusername/bbg-discord-bot#readme",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "dependencies": {
     "@discordjs/opus": "^0.10.0",
     "@snazzah/davey": "^0.1.7",
@@ -11,6 +45,9 @@
     "mongoose": "^8.18.2",
     "node-fetch": "^3.3.2",
     "prism-media": "^1.3.5"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
   },
   "type": "commonjs"
 }

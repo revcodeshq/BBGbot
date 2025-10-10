@@ -53,7 +53,7 @@ async function createRally(channel, leader, title, spots, duration = 10, mention
 
         if (i.customId === 'rally_cancel') {
             if (i.user.id !== leader.id) {
-                return i.followUp({ content: 'Only the rally leader can cancel this rally.', ephemeral: true });
+                return i.followUp({ content: 'Only the rally leader can cancel this rally.', flags: 64 });
             }
             return collector.stop('Canceled');
         }
@@ -62,20 +62,20 @@ async function createRally(channel, leader, title, spots, duration = 10, mention
 
         if (i.customId === 'rally_join') {
             if (isParticipant) {
-                return i.followUp({ content: 'You are already in this rally.', ephemeral: true });
+                return i.followUp({ content: 'You are already in this rally.', flags: 64 });
             }
             if (spots && participants.length >= spots) {
-                return i.followUp({ content: 'This rally is already full.', ephemeral: true });
+                return i.followUp({ content: 'This rally is already full.', flags: 64 });
             }
             participants.push(i.user.id);
         }
 
         if (i.customId === 'rally_leave') {
             if (!isParticipant) {
-                return i.followUp({ content: 'You are not in this rally.', ephemeral: true });
+                return i.followUp({ content: 'You are not in this rally.', flags: 64 });
             }
             if (i.user.id === leader.id) {
-                return i.followUp({ content: 'The rally leader cannot leave the rally.', ephemeral: true });
+                return i.followUp({ content: 'The rally leader cannot leave the rally.', flags: 64 });
             }
             participants = participants.filter(id => id !== i.user.id);
         }
@@ -100,8 +100,8 @@ async function handleRallyPing(interaction) {
     const targetMention = target.match(/<@&?(\d+)>/);
     if (!targetMention) {
         return interaction.editReply({
-            content: `❌ Invalid Target: Please mention a role or a user directly (e.g., \\\`@RoleName\\\\\`).`,
-            ephemeral: true 
+            content: `❌ Invalid Target: Please mention a role or a user directly (e.g., \`@RoleName\`).`,
+            flags: 64 
         });
     }
     const getRallyEmbed = (remainingMinutes, initiator) => {
@@ -152,19 +152,19 @@ async function handleRallyPing(interaction) {
         activeRallyTimers.set(message.id, timeoutId);
         await interaction.editReply({
             content: `✅ Rally Alert sent! The timer for **${initialDuration} minutes** has started and will count down automatically. [Jump to Message](${message.url})`,
-            ephemeral: true 
+            flags: 64 
         });
     } catch (error) {
         console.error('Error sending rally ping:', error);
         await interaction.editReply({
             content: `❌ Failed to send rally alert. Check bot permissions to send messages and embed links.`,
-            ephemeral: true
+            flags: 64
         });
     }
 }
 
 async function handleRallyClear(interaction) {
-    await interaction.deferReply({ ephemeral: true });
+    await interaction.deferReply({ flags: 64 });
     try {
         const messages = await interaction.channel.messages.fetch({ limit: 100 });
         const messageToDelete = messages.find(m => 
@@ -186,7 +186,7 @@ async function handleRallyClear(interaction) {
         console.error('Error clearing rally message:', error);
         await interaction.editReply({
             content: `❌ An error occurred while trying to clear the message. Reason: \\\`${error.message}\\\``,
-            ephemeral: true 
+            flags: 64 
         });
     }
 }
@@ -219,7 +219,7 @@ module.exports = {
     async execute(interaction) {
         const subcommand = interaction.options.getSubcommand();
         if (subcommand === 'create') {
-            await interaction.deferReply({ ephemeral: true });
+            await interaction.deferReply({ flags: 64 });
             const title = interaction.options.getString('title');
             const spots = interaction.options.getInteger('spots');
             const duration = interaction.options.getInteger('duration');

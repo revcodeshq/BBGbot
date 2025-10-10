@@ -14,7 +14,7 @@ module.exports = {
         ),
 
     async execute(interaction) {
-        await interaction.deferReply({ ephemeral: true });
+        await interaction.deferReply({ flags: 64 });
         const channel = interaction.options.getChannel('channel');
 
         if (!channel.isTextBased()) {

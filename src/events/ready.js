@@ -2,7 +2,7 @@ require('dotenv').config();
 const { REST, Routes, ActivityType } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
-const GUILD_ID = process.env.GUILD_ID || '1421956605787770913';
+const { get } = require('../utils/config');
 const Timer = require('../database/models.Timer'); // <-- ADDED
 const HelpMessage = require('../database/models.HelpMessage');
 const { brandingText } = require('../utils/branding.js');
@@ -29,7 +29,7 @@ module.exports = {
         try {
             // Register commands for the guild
             await rest.put(
-                Routes.applicationGuildCommands(client.user.id, GUILD_ID),
+                Routes.applicationGuildCommands(client.user.id, get('discord.guildId')),
                 { body: commands }
             );
             console.log('Successfully registered guild application commands.');
@@ -38,7 +38,7 @@ module.exports = {
         }
 
         try {
-            const helpMessageDoc = await HelpMessage.findOne({ guildId: GUILD_ID });
+            const helpMessageDoc = await HelpMessage.findOne({ guildId: get('discord.guildId') });
             if (helpMessageDoc) {
                 const channel = await client.channels.fetch(helpMessageDoc.channelId);
                 const message = await channel.messages.fetch(helpMessageDoc.messageId);

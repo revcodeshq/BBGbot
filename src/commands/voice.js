@@ -52,17 +52,17 @@ module.exports = {
 
         const config = await TempVoiceConfig.findOne({ guildId: guild.id });
         if (!config) {
-            return interaction.reply({ content: 'The temporary voice channel feature is not configured on this server.', ephemeral: true });
+            return interaction.reply({ content: 'The temporary voice channel feature is not configured on this server.', flags: 64 });
         }
 
         const tempChannelData = config.tempChannels.find(c => c.ownerId === member.id);
         if (!tempChannelData) {
-            return interaction.reply({ content: 'You do not own a temporary voice channel.', ephemeral: true });
+            return interaction.reply({ content: 'You do not own a temporary voice channel.', flags: 64 });
         }
 
         const channel = guild.channels.cache.get(tempChannelData.channelId);
         if (!channel) {
-            return interaction.reply({ content: 'Your temporary voice channel could not be found.', ephemeral: true });
+            return interaction.reply({ content: 'Your temporary voice channel could not be found.', flags: 64 });
         }
 
         if (subcommand === 'invite') {
@@ -71,28 +71,28 @@ module.exports = {
                 ViewChannel: true,
                 Connect: true,
             });
-            await interaction.reply({ content: `Invited ${user} to your channel.`, ephemeral: true });
+            await interaction.reply({ content: `Invited ${user} to your channel.`, flags: 64 });
         } else if (subcommand === 'lock') {
             await channel.permissionOverwrites.edit(guild.roles.everyone, {
                 Connect: false,
             });
-            await interaction.reply({ content: 'Channel locked.', ephemeral: true });
+            await interaction.reply({ content: 'Channel locked.', flags: 64 });
         } else if (subcommand === 'unlock') {
             await channel.permissionOverwrites.edit(guild.roles.everyone, {
                 Connect: true,
             });
-            await interaction.reply({ content: 'Channel unlocked.', ephemeral: true });
+            await interaction.reply({ content: 'Channel unlocked.', flags: 64 });
         } else if (subcommand === 'rename') {
             const newName = interaction.options.getString('name');
             await channel.setName(newName);
-            await interaction.reply({ content: `Channel renamed to ${newName}.`, ephemeral: true });
+            await interaction.reply({ content: `Channel renamed to ${newName}.`, flags: 64 });
         } else if (subcommand === 'limit') {
             const newLimit = interaction.options.getInteger('limit');
             if (newLimit < 0 || newLimit > 99) {
-                return interaction.reply({ content: 'User limit must be between 0 and 99.', ephemeral: true });
+                return interaction.reply({ content: 'User limit must be between 0 and 99.', flags: 64 });
             }
             await channel.setUserLimit(newLimit);
-            await interaction.reply({ content: `Channel user limit set to ${newLimit}.`, ephemeral: true });
+            await interaction.reply({ content: `Channel user limit set to ${newLimit}.`, flags: 64 });
         }
     },
 };

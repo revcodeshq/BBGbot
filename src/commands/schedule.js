@@ -13,6 +13,7 @@ const Announcement = require('../database/models.Announcements');
 const DisplayMessage = require('../database/models.DisplayMessage');
 const logger = require('../utils/logger');
 const { brandingText } = require('../utils/branding.js');
+const { get } = require('../utils/config');
 
 // --- Gemini API Configuration ---
 const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent`;
@@ -563,7 +564,7 @@ module.exports = {
     // Command execution
     async execute(interaction) {
         // Defer the reply ephemerally at the very beginning to avoid interaction timeout errors.
-        await interaction.deferReply({ ephemeral: true });
+        await interaction.deferReply({ flags: 64 });
 
         if (!interaction.guild || !interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
             return interaction.editReply({ content: 'You do not have permission to manage schedules.' });
@@ -710,14 +711,15 @@ ${error.message}`)
                 // Sort by the actual date object
                 upcomingEvents.sort((a, b) => a.nextRunDate - b.nextRunDate);
 
-                // TODO: Make this configurable via a command
-                const eventChannelId = '1421961434832830526';
+                // Get event channel from configuration
+                const eventChannelId = get('channels.eventSchedule');
+                if (!eventChannelId) {
+                    return interaction.editReply({ content: 'Event schedule channel is not configured. Please set EVENT_SCHEDULE_CHANNEL_ID in your environment variables.' });
+                }
+                
                 const eventChannel = interaction.guild.channels.cache.get(eventChannelId);
-
                 if (!eventChannel || !eventChannel.isTextBased()) {
-                    return interaction.editReply({ content: `The event channel with ID 
-${eventChannelId}
- was not found or is not a text channel.` });
+                    return interaction.editReply({ content: `The event channel with ID ${eventChannelId} was not found or is not a text channel.` });
                 }
 
                 // Delete the old message if it exists

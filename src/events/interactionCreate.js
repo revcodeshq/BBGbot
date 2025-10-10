@@ -4,6 +4,7 @@ const Poll = require('../database/models.Poll');
 const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
 const { brandingText } = require('../utils/branding.js');
 const { getFurnaceLevelName } = require('../utils/game-utils.js');
+const { get } = require('../utils/config');
 
 module.exports = {
   name: 'interactionCreate',
@@ -29,9 +30,9 @@ module.exports = {
         const User = require('../database/models.User');
         const member = await interaction.guild.members.fetch(userId);
         await User.findOneAndUpdate({ discordId: userId }, { verified: true });
-        const memberRole = interaction.guild.roles.cache.get('1421959390570873003');
+        const memberRole = interaction.guild.roles.cache.get(get('roles.memberRole'));
         if (memberRole) await member.roles.add(memberRole);
-        const roleToRemove = interaction.guild.roles.cache.get('1421959206751440996');
+        const roleToRemove = interaction.guild.roles.cache.get(get('roles.defaultRole'));
         if (roleToRemove) await member.roles.remove(roleToRemove);
         const botActivityChannel = interaction.guild.channels.cache.find(ch => ch.name.includes('📝-bot-activity') && ch.isTextBased());
         if (botActivityChannel) {
@@ -122,7 +123,7 @@ module.exports = {
 
         const voter = poll.voters.find(v => v.userId === interaction.user.id);
         if (voter) {
-            await interaction.followUp({ content: 'You have already voted in this poll.', ephemeral: true });
+            await interaction.followUp({ content: 'You have already voted in this poll.', flags: 64 });
             return;
         }
 
@@ -212,7 +213,7 @@ Furnace Level: **${furnaceLevelName}**`)
         await interaction.reply({ content: `✅ Verification request submitted! Leaders will review and approve you soon.`, flags: 64 });
       }
       else if (interaction.customId === 'reminder_modal') {
-            await interaction.deferReply({ ephemeral: true });
+            await interaction.deferReply({ flags: 64 });
 
             const description = interaction.fields.getTextInputValue('reminder_description');
             const timeQuery = interaction.fields.getTextInputValue('reminder_time');

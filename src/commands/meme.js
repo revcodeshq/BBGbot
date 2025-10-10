@@ -36,7 +36,7 @@ module.exports = {
         return { embeds: [embed], components: [row] };
       } catch (error) {
         console.error('Meme API error:', error);
-        return { content: 'Could not fetch a meme at this time. Please try again later.', ephemeral: true };
+        return { content: 'Could not fetch a meme at this time. Please try again later.', flags: 64 };
       }
     };
 

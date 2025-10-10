@@ -15,7 +15,7 @@ module.exports = {
         const channel = interaction.options.getChannel('channel');
 
         if (!channel.isTextBased()) {
-            return interaction.reply({ content: 'Please select a text channel.', ephemeral: true });
+            return interaction.reply({ content: 'Please select a text channel.', flags: 64 });
         }
 
         const helpEmbed = getStaticHelpEmbed();
@@ -33,11 +33,11 @@ module.exports = {
                 { upsert: true, new: true }
             );
 
-            await interaction.reply({ content: `Persistent help message has been set up in ${channel}.`, ephemeral: true });
+            await interaction.reply({ content: `Persistent help message has been set up in ${channel}.`, flags: 64 });
 
         } catch (error) {
             console.error('Error setting up help message:', error);
-            await interaction.reply({ content: 'An error occurred while setting up the help message.', ephemeral: true });
+            await interaction.reply({ content: 'An error occurred while setting up the help message.', flags: 64 });
         }
     },
 };

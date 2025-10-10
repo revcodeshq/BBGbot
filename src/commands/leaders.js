@@ -34,11 +34,11 @@ module.exports = {
 
         // Make the 'list' subcommand public
         if (subcommand !== 'list' && !interaction.member.permissions.has(PermissionFlagsBits.Administrator)) {
-            return interaction.reply({ content: 'You do not have permission to use this command.', ephemeral: true });
+            return interaction.reply({ content: 'You do not have permission to use this command.', flags: 64 });
         }
 
         if (subcommand === 'add') {
-            await interaction.deferReply({ ephemeral: true });
+            await interaction.deferReply({ flags: 64 });
             const user = interaction.options.getUser('user');
             const fid = interaction.options.getString('fid');
             const alliance = interaction.options.getString('alliance');
@@ -82,7 +82,7 @@ module.exports = {
             }
 
         } else if (subcommand === 'remove') {
-            await interaction.deferReply({ ephemeral: true });
+            await interaction.deferReply({ flags: 64 });
             const user = interaction.options.getUser('user');
 
             try {

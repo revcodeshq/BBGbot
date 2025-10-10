@@ -7,15 +7,22 @@ const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fet
 const logger = require('./src/utils/logger'); // <-- IMPORT LOGGER
 const { brandingText } = require('./src/utils/branding.js');
 const { getFurnaceLevelName } = require('./src/utils/game-utils.js');
+const { validateConfig, get } = require('./src/utils/config');
 
 // Ensure dotenv is configured first
 require('dotenv').config();
 
+// Validate configuration
+const missingConfig = validateConfig();
+if (missingConfig.length > 0) {
+	console.error('Missing required configuration:');
+	missingConfig.forEach(key => console.error(`  - ${key}`));
+	console.error('Please check your .env file and ensure all required variables are set.');
+	process.exit(1);
+}
+
 // Mongoose Connection Setup
-mongoose.connect(process.env.MONGO_URI, {
-	useNewUrlParser: true,
-	useUnifiedTopology: true
-}).then(() => {
+mongoose.connect(get('database.mongoUri')).then(() => {
 	console.log('Connected to MongoDB');
 }).catch(err => {
 	console.error('MongoDB connection error:', err);
@@ -285,8 +292,18 @@ async function checkSchedules(client) {
 
 
 // --- NICKNAME SYNC LOGIC ---
+let consecutiveApiFailures = 0;
+const maxApiFailures = 5;
+
 async function runNicknameSync(client) {
 	console.log('[Nickname Sync] Running background sync...');
+	
+	// Skip sync if API has been consistently failing
+	if (consecutiveApiFailures >= maxApiFailures) {
+		console.warn(`[Nickname Sync] Skipping sync due to ${consecutiveApiFailures} consecutive API failures. API may be down.`);
+		return;
+	}
+	
 	const guild = client.guilds.cache.get(process.env.GUILD_ID);
 	if (!guild) {
 		console.warn('GUILD_ID not found in cache. Skipping nickname sync.');
@@ -294,12 +311,17 @@ async function runNicknameSync(client) {
 	}
 
 	const users = await User.find({ verified: true });
+	let apiFailuresThisRun = 0;
 	for (const user of users) {
 		try {
 			// Fetch the member, gracefully handling if they have left
 			const member = await guild.members.fetch({ user: user.discordId, force: false });
 			if (!member) continue; // Skip if user is no longer in the guild
-
+			
+			// Skip guild owner - they shouldn't have their nickname changed
+			if (member.id === guild.ownerId) {
+				continue;
+			}
 			let nickname = null;
 			let furnace = '';
 
@@ -316,6 +338,14 @@ async function runNicknameSync(client) {
 						headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
 						body: fullForm
 					});
+
+					// Check if we got HTML instead of JSON (API error/maintenance)
+					const contentType = response.headers.get('content-type');
+					if (!contentType || !contentType.includes('application/json')) {
+						console.warn(`[Nickname Sync] API returned non-JSON response for FID ${user.gameId}. Likely maintenance or error page.`);
+						continue; // Skip this user, keep existing nickname
+					}
+
 					const data = await response.json();
 
 					if (data && data.data && data.data.nickname) {
@@ -323,10 +353,19 @@ async function runNicknameSync(client) {
 						if (data.data.stove_lv) {
 							furnace = getFurnaceLevelName(data.data.stove_lv);
 						}
+					} else if (data && data.code !== 0) {
+						console.warn(`[Nickname Sync] API error for FID ${user.gameId}: ${data.msg || 'Unknown error'}`);
+						continue; // Skip this user
 					}
 				} catch (apiErr) {
-					console.error(`[Nickname Sync] API error for FID ${user.gameId}:`, apiErr.message);
-					nickname = member.user.username; // Fallback to Discord username
+					// Handle specific JSON parsing errors
+					if (apiErr.message.includes('Unexpected token') && apiErr.message.includes('DOCTYPE')) {
+						console.warn(`[Nickname Sync] API returned HTML page instead of JSON for FID ${user.gameId}. API may be down or in maintenance.`);
+					} else {
+						console.error(`[Nickname Sync] API error for FID ${user.gameId}:`, apiErr.message);
+					}
+					apiFailuresThisRun++;
+					continue; // Skip this user, don't change their nickname
 				}
 			}
 
@@ -349,6 +388,17 @@ async function runNicknameSync(client) {
 			} else if (err.code !== 10007) {
 				console.error(`[Nickname Sync] Failed to update nickname for ${user.discordId}:`, err.message);
 			}
+		}
+	}
+	
+	// Update failure tracking
+	if (apiFailuresThisRun > users.length * 0.8) { // If more than 80% of users failed
+		consecutiveApiFailures++;
+		console.warn(`[Nickname Sync] High failure rate: ${apiFailuresThisRun}/${users.length} users failed. Consecutive failures: ${consecutiveApiFailures}`);
+	} else {
+		consecutiveApiFailures = 0; // Reset on successful run
+		if (apiFailuresThisRun > 0) {
+			console.log(`[Nickname Sync] Completed with ${apiFailuresThisRun} failures. API appears to be working.`);
 		}
 	}
 }

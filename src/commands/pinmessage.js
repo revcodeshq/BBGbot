@@ -28,10 +28,10 @@ module.exports = {
         try {
             const message = await interaction.channel.send({ embeds: [embed] });
             await message.pin();
-            await interaction.reply({ content: 'The message has been sent and pinned.', ephemeral: true });
+            await interaction.reply({ content: 'The message has been sent and pinned.', flags: 64 });
         } catch (error) {
             console.error('Failed to send or pin message:', error);
-            await interaction.reply({ content: 'There was an error sending or pinning the message.', ephemeral: true });
+            await interaction.reply({ content: 'There was an error sending or pinning the message.', flags: 64 });
         }
     },
 };

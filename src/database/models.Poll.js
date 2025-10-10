@@ -13,6 +13,4 @@ const pollSchema = new mongoose.Schema({
     status: { type: String, default: 'RUNNING' }, // RUNNING, ENDED
 });
 
-pollSchema.index({ messageId: 1 });
-
 module.exports = mongoose.model('Poll', pollSchema);

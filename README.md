@@ -2,6 +2,8 @@
 
 A comprehensive Discord bot designed for the BBG Alliance, featuring advanced game integration with Whiteout Survival, automated scheduling, giveaway management, and AI-powered features.
 
+> **✨ Now with Centralized Configuration!** All hardcoded values have been moved to environment variables for easy customization across different Discord servers. See [CONFIGURATION.md](CONFIGURATION.md) for details.
+
 ## 🌟 Features
 
 ### 🎮 Game Integration
@@ -62,7 +64,12 @@ Before setting up the bot, ensure you have:
    ```
    Edit the `.env` file with your configuration (see [Environment Variables](#environment-variables) section)
 
-4. **Start the bot**
+4. **Validate your configuration** (optional but recommended)
+   ```bash
+   npm run validate-config
+   ```
+
+5. **Start the bot**
    ```bash
    npm start
    ```

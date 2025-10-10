@@ -67,7 +67,7 @@ module.exports = {
 
             const durationMs = parseDuration(durationStr);
             if (!durationMs) {
-                return interaction.reply({ content: 'Invalid duration format. Use s, m, h, or d.', ephemeral: true });
+                return interaction.reply({ content: 'Invalid duration format. Use s, m, h, or d.', flags: 64 });
             }
 
             const endTime = new Date(Date.now() + durationMs);
@@ -96,23 +96,23 @@ module.exports = {
 
             await giveaway.save();
 
-            await interaction.reply({ content: 'Giveaway started!', ephemeral: true });
+            await interaction.reply({ content: 'Giveaway started!', flags: 64 });
         } else if (subcommand === 'reroll') {
             const giveawayId = interaction.options.getString('giveaway_id');
             const giveaway = await Giveaway.findOne({ messageId: giveawayId, status: 'ENDED' });
 
             if (!giveaway) {
-                return interaction.reply({ content: 'Could not find an ended giveaway with that message ID.', ephemeral: true });
+                return interaction.reply({ content: 'Could not find an ended giveaway with that message ID.', flags: 64 });
             }
 
             const channel = await client.channels.fetch(giveaway.channelId).catch(() => null);
             if (!channel) {
-                return interaction.reply({ content: 'Could not find the giveaway channel.', ephemeral: true });
+                return interaction.reply({ content: 'Could not find the giveaway channel.', flags: 64 });
             }
 
             const message = await channel.messages.fetch(giveaway.messageId).catch(() => null);
             if (!message) {
-                return interaction.reply({ content: 'Could not find the giveaway message.', ephemeral: true });
+                return interaction.reply({ content: 'Could not find the giveaway message.', flags: 64 });
             }
 
             const reaction = message.reactions.cache.get('🎉');
@@ -122,7 +122,7 @@ module.exports = {
             const possibleWinners = entrants.filter(entrant => !oldWinners.includes(entrant));
 
             if (possibleWinners.length === 0) {
-                return interaction.reply({ content: 'No new entrants to choose from.', ephemeral: true });
+                return interaction.reply({ content: 'No new entrants to choose from.', flags: 64 });
             }
 
             const newWinnerIndex = Math.floor(Math.random() * possibleWinners.length);
@@ -138,11 +138,11 @@ module.exports = {
             const giveaway = await Giveaway.findOne({ messageId: giveawayId, status: 'RUNNING' });
 
             if (!giveaway) {
-                return interaction.reply({ content: 'Could not find a running giveaway with that message ID.', ephemeral: true });
+                return interaction.reply({ content: 'Could not find a running giveaway with that message ID.', flags: 64 });
             }
 
             await endGiveaway(giveaway, client);
-            await interaction.reply({ content: 'Giveaway ended!', ephemeral: true });
+            await interaction.reply({ content: 'Giveaway ended!', flags: 64 });
         }
     },
 };

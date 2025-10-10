@@ -28,7 +28,7 @@ module.exports = {
         ),
 
     async execute(interaction) {
-        await interaction.deferReply({ ephemeral: true });
+        await interaction.deferReply({ flags: 64 });
 
         const question = interaction.options.getString('question');
         const durationStr = interaction.options.getString('duration');

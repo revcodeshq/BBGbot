@@ -10,6 +10,4 @@ const tempVoiceConfigSchema = new mongoose.Schema({
     }],
 });
 
-tempVoiceConfigSchema.index({ guildId: 1 });
-
 module.exports = mongoose.model('TempVoiceConfig', tempVoiceConfigSchema);

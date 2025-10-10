@@ -87,7 +87,7 @@ module.exports = {
         if (!API_KEY) {
              return interaction.editReply({ 
                 content: "❌ API Key Error: The bot administrator must set the `GEMINI_API_KEY` in the environment file to enable the `/guide` command.", 
-                ephemeral: true 
+                flags: 64 
             });
         }
         
@@ -124,7 +124,7 @@ module.exports = {
             console.error("Guide command execution failed:", error);
             await interaction.editReply({ 
                 content: `❌ Guide Error: I couldn't process that question. Reason: \`${error.message}\``,
-                ephemeral: true 
+                flags: 64 
             });
         }
     },

@@ -31,7 +31,7 @@ module.exports = {
                 .setRequired(false)),
 
     async execute(interaction) {
-        await interaction.deferReply({ ephemeral: true });
+        await interaction.deferReply({ flags: 64 });
         const targetUser = interaction.options.getUser('user') || interaction.user;
 
         // Call the core function

@@ -66,7 +66,7 @@ module.exports = {
         const message = await interaction.reply({
             embeds: [initialEmbed],
             components: [initialButtons],
-            ephemeral: true,
+            flags: 64,
             fetchReply: true,
         });
 

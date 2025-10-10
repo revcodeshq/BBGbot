@@ -1,12 +1,17 @@
 const { Events } = require('discord.js');
+const { get } = require('../utils/config');
 
 module.exports = {
     name: Events.GuildMemberAdd,
     async execute(member) {
         // Assign role
-        const roleId = '1421959206751440996';
-        const role = member.guild.roles.cache.get(roleId);
+        const roleId = get('roles.defaultRole');
+        if (!roleId) {
+            console.warn('DEFAULT_MEMBER_ROLE_ID not configured in environment variables');
+            return;
+        }
 
+        const role = member.guild.roles.cache.get(roleId);
         if (role) {
             try {
                 await member.roles.add(role);
@@ -19,23 +24,51 @@ module.exports = {
         }
 
         // Send welcome message
-        const welcomeChannelId = '1422944137224781866';
-        const announcementsChannelId = '1421960221110308967';
-        const eventScheduleChannelId = '1421961434832830526';
-        const generalChannelId = '1421965122850525305';
+        const welcomeChannelId = get('channels.welcome');
+        const announcementsChannelId = get('channels.announcements');
+        const eventScheduleChannelId = get('channels.eventSchedule');
+        const generalChannelId = get('channels.general');
+        const serverTitle = get('welcomeMessage.title');
+        const verifyChannelName = get('welcomeMessage.verifyChannelName');
 
-        const welcomeMessage = `Welcome, ${member}! We're glad to have you in **BBG - BeersBaconGlory**!\n\n**Get Started:**\nPlease verify your account by going to the #✅-verify channel and clicking the button.\n\n**Important Channels:**\n- <#${announcementsChannelId}>: Stay up to date with important news and announcements.\n- <#${eventScheduleChannelId}>: Check out our upcoming events.\n- <#${generalChannelId}>: General chat with the alliance.\n\n**Key Commands:**\n- 
-/help
-: Shows all available commands.\n- 
-/playerinfo
-: Check your or another member's game stats.\n- 
-/quote
-: Add or get a random quote from the alliance.`;
+        if (!welcomeChannelId) {
+            console.warn('WELCOME_CHANNEL_ID not configured in environment variables');
+            return;
+        }
+
+        // Build welcome message with dynamic content
+        let welcomeMessageText = `Welcome, ${member}! We're glad to have you in **${serverTitle}**!
+
+**Get Started:**
+Please verify your account by going to the #${verifyChannelName} channel and clicking the button.
+
+**Important Channels:**`;
+
+        // Add channel references only if they are configured
+        if (announcementsChannelId) {
+            welcomeMessageText += `\n- <#${announcementsChannelId}>: Stay up to date with important news and announcements.`;
+        }
+        if (eventScheduleChannelId) {
+            welcomeMessageText += `\n- <#${eventScheduleChannelId}>: Check out our upcoming events.`;
+        }
+        if (generalChannelId) {
+            welcomeMessageText += `\n- <#${generalChannelId}>: General chat with the alliance.`;
+        }
+
+        welcomeMessageText += `
+
+**Key Commands:**
+- \`/help\`: Shows all available commands.
+- \`/playerinfo\`: Check your or another member's game stats.
+- \`/quote\`: Add or get a random quote from the alliance.`;
 
         try {
             const channel = await member.guild.channels.fetch(welcomeChannelId);
             if (channel && channel.isTextBased()) {
-                await channel.send(welcomeMessage);
+                await channel.send(welcomeMessageText);
+                console.log(`Sent welcome message to ${member.user.tag} in channel ${channel.name}`);
+            } else {
+                console.error(`Welcome channel ${welcomeChannelId} not found or is not a text channel`);
             }
         } catch (error) {
             console.error('Error sending welcome message:', error);

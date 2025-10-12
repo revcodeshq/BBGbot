@@ -416,8 +416,148 @@ client.once('clientReady', async () => {
 	runNicknameSync(client);
 	setInterval(() => runNicknameSync(client), 10 * 60 * 1000);
 
-    // 3. Start the Bot Info updater
-    require('./src/tasks/updateBotInfo.js')(client);
+    // 3. Start the Giveaway and Poll Enders
     require('./src/tasks/giveaway-ender.js')(client);
     require('./src/tasks/poll-ender.js')(client);
+
+    // 4. Start periodic event schedule embed updater
+    const Announcement = require('./src/database/models.Announcements');
+    const DisplayMessage = require('./src/database/models.DisplayMessage');
+    const { EmbedBuilder } = require('discord.js');
+    const { get } = require('./src/utils/config');
+    const getIntervalDisplayName = (ann) => {
+        switch (ann.interval) {
+            case 'ONCE': return 'One-Time';
+            case 'DAILY': return 'Daily';
+            case 'WEEKLY': {
+                const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+                return `Weekly (Every ${days[ann.dayOfWeek]})`;
+            }
+            case 'CUSTOM_DAYS': return `Every ${ann.daysInterval} Days`;
+            case 'CUSTOM_WEEKS': return `Every ${ann.weeksInterval} Weeks`;
+            default: return ann.interval;
+        }
+    };
+    const calculateNextRunDate = (ann, now) => {
+        const [targetHour, targetMinute] = ann.time.split(':').map(Number);
+        let nextRun = new Date(now);
+        nextRun.setUTCHours(targetHour, targetMinute, 0, 0);
+        if (ann.interval === 'ONCE') {
+            if (nextRun < now) return null;
+            return nextRun;
+        }
+        if (ann.interval === 'DAILY') {
+            if (nextRun < now) nextRun.setUTCDate(nextRun.getUTCDate() + 1);
+            return nextRun;
+        }
+        if (ann.interval === 'WEEKLY') {
+            const targetDay = ann.dayOfWeek;
+            const nowDay = now.getUTCDay();
+            let dayDifference = targetDay - nowDay;
+            if (dayDifference < 0) dayDifference += 7;
+            else if (dayDifference === 0 && nextRun < now) dayDifference = 7;
+            nextRun.setUTCDate(nextRun.getUTCDate() + dayDifference);
+            return nextRun;
+        }
+        if (ann.interval === 'CUSTOM_DAYS' && ann.daysInterval) {
+            let baseDate = ann.lastSent ? new Date(ann.lastSent) : now;
+            baseDate.setUTCHours(targetHour, targetMinute, 0, 0);
+            if (baseDate < now) {
+                baseDate.setUTCDate(baseDate.getUTCDate() + ann.daysInterval);
+            }
+            return baseDate;
+        }
+        if (ann.interval === 'CUSTOM_WEEKS' && ann.weeksInterval) {
+            let baseDate = ann.lastSent ? new Date(ann.lastSent) : now;
+            baseDate.setUTCHours(targetHour, targetMinute, 0, 0);
+            if (baseDate < now) {
+                baseDate.setUTCDate(baseDate.getUTCDate() + (ann.weeksInterval * 7));
+            }
+            return baseDate;
+        }
+        return null;
+    };
+
+    async function updateEventScheduleEmbed() {
+        try {
+            const guildId = client.guilds.cache.first()?.id;
+            if (!guildId) return;
+            const announcements = await Announcement.find({ guildId });
+            const now = new Date();
+            const upcomingEvents = [];
+            for (const ann of announcements) {
+                let nextRunDate = calculateNextRunDate(ann, now);
+                // For custom intervals or unknown, just show as 'Unknown' but include in display
+                if (!nextRunDate && (ann.interval === 'CUSTOM_DAYS' || ann.interval === 'CUSTOM_WEEKS')) {
+                    nextRunDate = null;
+                }
+                upcomingEvents.push({ ...ann.toObject(), nextRunDate });
+            }
+            // Sort: known dates first, then unknowns
+            upcomingEvents.sort((a, b) => {
+                if (a.nextRunDate && b.nextRunDate) return a.nextRunDate - b.nextRunDate;
+                if (a.nextRunDate) return -1;
+                if (b.nextRunDate) return 1;
+                return 0;
+            });
+            const eventChannelId = get('channels.eventSchedule');
+            if (!eventChannelId) return;
+            const guild = client.guilds.cache.get(guildId);
+            if (!guild) return;
+            const eventChannel = guild.channels.cache.get(eventChannelId);
+            if (!eventChannel || !eventChannel.isTextBased()) return;
+            const existingDisplay = await DisplayMessage.findOne({ guildId });
+            let displayMessage = null;
+            if (existingDisplay) {
+                try {
+                    displayMessage = await eventChannel.messages.fetch(existingDisplay.messageId);
+                } catch (err) {
+                    displayMessage = null;
+                }
+            }
+            const eventEmbed = new EmbedBuilder()
+                .setTitle('✨ Upcoming Alliance Events ✨')
+                .setColor(0xFFD700)
+                .setThumbnail('https://www.freeiconspng.com/uploads/calendar-icon-png-28.png')
+                .setTimestamp()
+                .setFooter({ text: 'This board is automatically updated.', iconURL: guild.iconURL() });
+            if (upcomingEvents.length === 0) {
+                eventEmbed.setDescription('There are no upcoming events scheduled right now. Check back later!');
+            } else {
+                eventEmbed.setDescription(`Here are our next scheduled events! Last Update: <t:${Math.floor(Date.now() / 1000)}:R>`);
+                upcomingEvents.slice(0, 5).forEach((event, index) => {
+                    let value = '';
+                    if (event.nextRunDate) {
+                        const eventTimestamp = Math.floor(event.nextRunDate.getTime() / 1000);
+                        value += `\n**Starts:** <t:${eventTimestamp}:F> (<t:${eventTimestamp}:R>)\n\n`;
+                    } else {
+                        value += `\n**Starts:** Unknown (Custom Interval)\n\n`;
+                    }
+                    value += `**Channel:** <#${event.channelId}>\n\n`;
+                    const contentPreview = event.content.substring(0, 1000) + (event.content.length > 1000 ? '...' : '');
+                    value += `**Details:**\n>>> ${contentPreview}`;
+                    eventEmbed.addFields({
+                        name: `🗓️ ${getIntervalDisplayName(event)} Event #${index + 1}`,
+                        value
+                    });
+                });
+            }
+            if (displayMessage) {
+                await displayMessage.edit({ embeds: [eventEmbed] });
+            } else {
+                const sentMessage = await eventChannel.send({ embeds: [eventEmbed] });
+                await DisplayMessage.findOneAndUpdate(
+                    { guildId },
+                    { channelId: eventChannelId, messageId: sentMessage.id },
+                    { upsert: true, new: true }
+                );
+            }
+        } catch (err) {
+            console.error('[EventScheduleUpdater] Failed to update event schedule embed:', err);
+        }
+    }
+
+    // Run once on startup, then every 5 minutes
+    updateEventScheduleEmbed();
+    setInterval(updateEventScheduleEmbed, 5 * 60 * 1000);
 });

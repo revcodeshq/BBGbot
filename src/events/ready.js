@@ -14,7 +14,63 @@ module.exports = {
     async execute(client) {
         console.log(`Ready! Logged in as ${client.user.tag}`);
         // Set a custom activity/status
-        client.user.setActivity('BBG Alliance', { type: ActivityType.Watching });
+    client.user.setActivity('👑 BBG Alliance | Type /help', { type: ActivityType.Watching });
+
+        // Set bot avatar to guild icon
+        try {
+            const guildId = get('discord.guildId');
+            const guild = await client.guilds.fetch(guildId);
+            if (guild && guild.iconURL()) {
+                const iconUrl = guild.iconURL({ extension: 'png', size: 512 });
+                // Download the image as a buffer
+                const axios = require('axios');
+                const response = await axios.get(iconUrl, { responseType: 'arraybuffer' });
+                const imageBuffer = Buffer.from(response.data, 'binary');
+                await client.user.setAvatar(imageBuffer);
+                console.log('Bot avatar updated to guild icon.');
+            } else {
+                console.warn('Guild icon not found or guild fetch failed.');
+            }
+        } catch (err) {
+            console.error('Failed to set bot avatar to guild icon:', err);
+        }
+
+        // --- Persistent Bot Info Message ---
+        try {
+            const BotInfoMessage = require('../database/models/BotInfoMessage');
+            const { generateBotInfoEmbed } = require('../utils/bot-info.js');
+            const botInfoDoc = await BotInfoMessage.findOne({ guildId: get('discord.guildId') });
+            if (botInfoDoc) {
+                const channel = await client.channels.fetch(botInfoDoc.channelId);
+                let infoMessage;
+                try {
+                    infoMessage = await channel.messages.fetch(botInfoDoc.messageId);
+                } catch (err) {
+                    infoMessage = null;
+                }
+                const infoEmbed = await generateBotInfoEmbed(client);
+                if (infoMessage) {
+                    // Update the embed to keep info fresh
+                    await infoMessage.edit({ embeds: [infoEmbed] });
+                    console.log('Bot info message found and updated.');
+                } else {
+                    // Message missing, re-send and update DB
+                    const newMsg = await channel.send({ embeds: [infoEmbed] });
+                    await BotInfoMessage.findOneAndUpdate(
+                        { guildId: channel.guild.id },
+                        {
+                            guildId: channel.guild.id,
+                            channelId: channel.id,
+                            messageId: newMsg.id,
+                        },
+                        { upsert: true, new: true }
+                    );
+                    console.log('Bot info message was missing and has been restored.');
+                }
+            }
+        } catch (err) {
+            console.error('Error restoring/updating persistent bot info message:', err);
+        }
 
         // Collect all command data
         const commands = [];
@@ -32,7 +88,7 @@ module.exports = {
                 Routes.applicationGuildCommands(client.user.id, get('discord.guildId')),
                 { body: commands }
             );
-            console.log('Successfully registered guild application commands.');
+            console.log('Successfully registered gui    ld application commands.');
         } catch (error) {
             console.error('Error registering commands:', error);
         }

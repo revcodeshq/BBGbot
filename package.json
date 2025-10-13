@@ -1,9 +1,9 @@
 {
   "name": "bbg-discord-bot",
   "version": "1.0.0",
-  "description": "Advanced Discord bot for BBG Alliance with game integration, scheduling, giveaways, and AI-powered features",
+  "description": "Discord bot for BBG Alliance: game integration, scheduling, giveaways, and more.",
   "main": "index.js",
-  "author": "Rev",
+  "author": "RevCodesHQ <contact@revcodeshq.com>",
   "license": "MIT",
   "keywords": [
     "discord",
@@ -19,12 +19,12 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/yourusername/bbg-discord-bot.git"
+    "url": "https://github.com/revcodeshq/BBGbot.git"
   },
   "bugs": {
-    "url": "https://github.com/yourusername/bbg-discord-bot/issues"
+    "url": "https://github.com/revcodeshq/BBGbot/issues"
   },
-  "homepage": "https://github.com/yourusername/bbg-discord-bot#readme",
+  "homepage": "https://github.com/revcodeshq/BBGbot#readme",
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js",

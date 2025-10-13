@@ -1,63 +1,70 @@
-const { Client, Collection, GatewayIntentBits, InteractionType } = require('discord.js');
+
+/**
+ * BBG Discord Bot - Main Entry
+ * Professional release version
+ * Author: Rev
+ * License: MIT
+ */
+
+const { Client, Collection, GatewayIntentBits } = require('discord.js');
 const mongoose = require('mongoose');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
-const logger = require('./src/utils/logger'); // <-- IMPORT LOGGER
+const logger = require('./src/utils/logger');
 const { brandingText } = require('./src/utils/branding.js');
 const { getFurnaceLevelName } = require('./src/utils/game-utils.js');
 const { validateConfig, get } = require('./src/utils/config');
 
-// Ensure dotenv is configured first
 require('dotenv').config();
 
 // Validate configuration
 const missingConfig = validateConfig();
 if (missingConfig.length > 0) {
-	console.error('Missing required configuration:');
-	missingConfig.forEach(key => console.error(`  - ${key}`));
-	console.error('Please check your .env file and ensure all required variables are set.');
-	process.exit(1);
+    console.error('Missing required configuration:');
+    missingConfig.forEach(key => console.error(`  - ${key}`));
+    console.error('Please check your .env file and ensure all required variables are set.');
+    process.exit(1);
 }
 
-// Mongoose Connection Setup
+// Connect to MongoDB
 mongoose.connect(get('database.mongoUri')).then(() => {
-	console.log('Connected to MongoDB');
+    console.log('Connected to MongoDB');
 }).catch(err => {
-	console.error('MongoDB connection error:', err);
+    console.error('MongoDB connection error:', err);
 });
 
-// Client Setup
+// Discord Client Setup
 const client = new Client({
-	intents: [
-		GatewayIntentBits.Guilds,
-		GatewayIntentBits.GuildMessages,
-		GatewayIntentBits.MessageContent,
-		GatewayIntentBits.GuildMembers,
-		GatewayIntentBits.GuildPresences,
-		GatewayIntentBits.GuildMessageReactions,
-		GatewayIntentBits.GuildVoiceStates,
-		GatewayIntentBits.GuildMessageTyping,
+    intents: [
+        GatewayIntentBits.Guilds,
+        GatewayIntentBits.GuildMessages,
+        GatewayIntentBits.MessageContent,
+        GatewayIntentBits.GuildMembers,
+        GatewayIntentBits.GuildPresences,
+        GatewayIntentBits.GuildMessageReactions,
+        GatewayIntentBits.GuildVoiceStates,
+        GatewayIntentBits.GuildMessageTyping,
         GatewayIntentBits.DirectMessages,
         GatewayIntentBits.DirectMessageReactions,
         GatewayIntentBits.DirectMessageTyping,
         GatewayIntentBits.GuildIntegrations
-	]
+    ]
 });
 client.commands = new Collection();
 
-// --- Command Loader ---
+// Command Loader
 const commandsPath = path.join(__dirname, 'src', 'commands');
 if (fs.existsSync(commandsPath)) {
-	const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js'));
-	for (const file of commandFiles) {
-		const command = require(path.join(commandsPath, file));
-		client.commands.set(command.data.name, command);
-	}
+    const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js'));
+    for (const file of commandFiles) {
+        const command = require(path.join(commandsPath, file));
+        client.commands.set(command.data.name, command);
+    }
 }
 
-// --- Event Loader ---
+// Event Loader
 const eventsPath = path.join(__dirname, 'src', 'events');
 if (fs.existsSync(eventsPath)) {
 	const eventFiles = fs.readdirSync(eventsPath).filter(file => file.endsWith('.js'));

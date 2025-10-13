@@ -1,6 +1,12 @@
+
+![GitHub Repo](https://img.shields.io/github/stars/revcodeshq/BBGbot?style=social)
+![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
+
 # BBG Discord Bot
 
 A comprehensive Discord bot designed for the BBG Alliance, featuring advanced game integration with Whiteout Survival, automated scheduling, giveaway management, and AI-powered features.
+
+**GitHub Repository:** [github.com/revcodeshq/BBGbot](https://github.com/revcodeshq/BBGbot)
 
 > **✨ Now with Centralized Configuration!** All hardcoded values have been moved to environment variables for easy customization across different Discord servers. See [CONFIGURATION.md](CONFIGURATION.md) for details.
 
@@ -216,7 +222,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 📞 Support
 
 For support, questions, or feature requests:
-- Create an issue on GitHub
+- Create an issue on [GitHub](https://github.com/revcodeshq/BBGbot/issues)
+- Join the community [Discord](https://discord.gg/cVqGECV2fc) for help
 - Contact: Rev (Bot Developer)
 
 ## 🏆 Acknowledgments

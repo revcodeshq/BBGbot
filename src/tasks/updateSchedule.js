@@ -68,7 +68,8 @@ const updateSchedule = async (client) => {
             await message.edit({ embeds: [eventEmbed] });
         }
     } catch (error) {
-        logger.error(`[UpdateSchedule] Error updating schedule: ${error.message}`, error);
+    console.error(`[UpdateSchedule] Error updating schedule: ${error.message}`, error);
+    if (logger.logBotActivity) logger.logBotActivity('UpdateSchedule Error', error.message, client);
     }
 };
 

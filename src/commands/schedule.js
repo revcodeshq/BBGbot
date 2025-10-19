@@ -678,7 +678,8 @@ ${error.message}`)
                 await interaction.editReply({ embeds });
                 
             } catch (error) {
-                logger.error(`[Schedule/Status] Failed to generate status: ${error.message}`, error);
+                console.error(`[Schedule/Status] Failed to generate status: ${error.message}`, error);
+                if (logger.logBotActivity) logger.logBotActivity('Schedule/Status Error', error.message, interaction);
                 const errorEmbed = new EmbedBuilder()
                     .setTitle('❌ Status Error')
                     .setDescription(`Failed to generate the schedule status: 
@@ -807,7 +808,8 @@ ${error.message}`)
                 });
 
             } catch (error) {
-                logger.error(`[Schedule/List] Failed to fetch announcements for Guild ${interaction.guildId}: ${error.message}`, error);
+                console.error(`[Schedule/List] Failed to fetch announcements for Guild ${interaction.guildId}: ${error.message}`, error);
+                if (logger.logBotActivity) logger.logBotActivity('Schedule/List Error', error.message, interaction);
                 const errorEmbed = new EmbedBuilder()
                     .setTitle('❌ Database Error')
                     .setDescription(`Failed to fetch schedules from the database: 
@@ -848,7 +850,8 @@ ${announcementId}
                 await interaction.editReply({ embeds: [successEmbed] });
 
             } catch (error) {
-                logger.error(`[Schedule/Delete] Failed to delete announcement ID ${announcementId}: ${error.message}`, error);
+                console.error(`[Schedule/Delete] Failed to delete announcement ID ${announcementId}: ${error.message}`, error);
+                if (logger.logBotActivity) logger.logBotActivity('Schedule/Delete Error', error.message, interaction);
                 const errorEmbed = new EmbedBuilder()
                     .setTitle('❌ Deletion Error')
                     .setDescription(`Failed to delete schedule with ID 
@@ -987,7 +990,8 @@ ${updatedAnnouncement.time}
                 await interaction.editReply({ embeds: [successEmbed] });
 
             } catch (error) {
-                logger.error(`[Schedule/Modify] Failed to modify announcement ID ${announcementId}: ${error.message}`, error);
+                console.error(`[Schedule/Modify] Failed to modify announcement ID ${announcementId}: ${error.message}`, error);
+                if (logger.logBotActivity) logger.logBotActivity('Schedule/Modify Error', error.message, interaction);
                 const errorEmbed = new EmbedBuilder()
                     .setTitle('❌ Modification Error')
                     .setDescription(`Failed to modify schedule with ID 
@@ -1111,7 +1115,8 @@ ${announcement.time}
                         });
 
                     } catch (error) {
-                        logger.error(`[Schedule/Set] Failed to save announcement for Guild ${interaction.guildId}: ${error.message}`, error);
+                        console.error(`[Schedule/Set] Failed to save announcement for Guild ${interaction.guildId}: ${error.message}`, error);
+                        if (logger.logBotActivity) logger.logBotActivity('Schedule/Set Error', error.message, interaction);
                         const errorEmbed = new EmbedBuilder()
                             .setTitle('❌ Schedule Save Failed')
                             .setDescription(`An error occurred while saving the schedule: 

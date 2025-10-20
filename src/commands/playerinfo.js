@@ -3,10 +3,10 @@ const User = require('../database/models.User');
 const axios = require('axios');
 const crypto = require('crypto');
 const { brandingText } = require('../utils/branding.js');
+const { get } = require('../utils/config');
 
 // --- Game API Constants and Helpers ---
 const API_ENDPOINT = 'https://wos-giftcode-api.centurygame.com/api/player';
-const API_SECRET = "tB87#kPtkxqOS2"; // Use environment variable
 
 const LEVEL_MAPPING = {
     31: "30-1", 32: "30-2", 33: "30-3", 34: "30-4",
@@ -30,9 +30,7 @@ const EMBED_COLORS = {
 const BASE_FURNACE_LEVEL = 30;
 
 async function fetchGameData(gameId) {
-    if (!API_SECRET) {
-        throw new Error('WOS_SECRET is not configured in the environment variables.');
-    }
+    const API_SECRET = get('api.wosApiSecret');
     const currentTime = Date.now();
     const baseForm = `fid=${gameId}&time=${currentTime}`;
     const sign = crypto.createHash('md5').update(baseForm + API_SECRET).digest('hex');

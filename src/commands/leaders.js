@@ -2,6 +2,7 @@ const { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits } = require('disc
 const Leader = require('../database/models.Leader');
 const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
 const crypto = require('crypto');
+const { get } = require('../utils/config');
 
 
 module.exports = {
@@ -45,7 +46,7 @@ module.exports = {
 
             try {
                 // Fetch player info from API to get the correct in-game name
-                const secret = process.env.WOS_API_SECRET || 'tB87#kPtkxqOS2';
+                const secret = get('api.wosApiSecret');
                 const currentTime = Date.now();
                 const baseForm = `fid=${fid}&time=${currentTime}`;
                 const sign = crypto.createHash('md5').update(baseForm + secret).digest('hex');

@@ -2,15 +2,15 @@ const { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits } = require("disc
 const axios = require("axios");
 const crypto = require("crypto");
 const { brandingText } = require('../utils/branding.js');
+const { get } = require('../utils/config');
 // Import the logger utility
-const logger = require('../utils/logger'); 
+const logger = require('../utils/logger');
 
 // --- Database Configuration ---
 // Assuming your User model handles the database connection setup.
-const User = require('../database/models.User'); 
+const User = require('../database/models.User');
 
 // Configuration for the Whiteout Survival API
-const SECRET = "tB87#kPtkxqOS2"; // The secret key for signing requests
 const API_BASE_URL = "https://wos-giftcode-api.centurygame.com/api";
 const WEB_BASE_URL = "https://wos-giftcode.centurygame.com"; // Base URL for the CAPTCHA image/web interface
 
@@ -80,10 +80,11 @@ apiInstance.interceptors.response.use(response => {
 function buildSignedForm(params) {
   // Sort keys alphabetically
   const sortedKeys = Object.keys(params).sort();
-  
+
   // Create query string: k1=v1&k2=v2... + SECRET
+  const SECRET = get('api.wosApiSecret');
   const query = sortedKeys.map(k => `${k}=${params[k]}`).join("&") + SECRET;
-  
+
   // Generate the MD5 signature
   const sign = crypto.createHash("md5").update(query).digest("hex");
 

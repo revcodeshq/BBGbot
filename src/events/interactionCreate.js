@@ -158,7 +158,7 @@ module.exports = {
             return;
         }
         const crypto = require('crypto');
-        const secret = 'tB87#kPtkxqOS2';
+        const secret = get('api.wosApiSecret');
         let player = null;
         try {
             const currentTime = Date.now();

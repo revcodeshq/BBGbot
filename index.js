@@ -334,7 +334,7 @@ async function runNicknameSync(client) {
 
 			if (user.gameId) {
 				const currentTime = Date.now();
-				const secret = process.env.WOS_API_SECRET || 'tB87#kPtkxqOS2'; // Use secret from env or default
+				const secret = get('api.wosApiSecret');
 				const baseForm = `fid=${user.gameId}&time=${currentTime}`;
 				const sign = crypto.createHash('md5').update(baseForm + secret).digest('hex');
 				const fullForm = `sign=${sign}&${baseForm}`;

@@ -1,13 +1,14 @@
 // captcha-helper.js
 const axios = require('axios');
 const crypto = require('crypto');
+const { get } = require('./config');
 
 const BASE_URL = 'https://wos-giftcode-api.centurygame.com/api';
-const SECRET = 'tB87#kPtkxqOS2';
 
 // Build signed form (same as before)
 function buildSignedForm(params) {
   const sortedKeys = Object.keys(params).sort();
+  const SECRET = get('api.wosApiSecret');
   const query = sortedKeys.map(k => `${k}=${params[k]}`).join('&') + SECRET;
   const sign = crypto.createHash('md5').update(query).digest('hex');
 

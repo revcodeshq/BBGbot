@@ -38,7 +38,7 @@ const config = {
     // API Configuration
     api: {
         geminiApiKey: process.env.GEMINI_API_KEY || "",
-        wosApiSecret: process.env.WOS_API_SECRET || "tB87#kPtkxqOS2",
+        wosApiSecret: process.env.WOS_API_SECRET,
         twoCaptchaApiKey: process.env.TWO_CAPTCHA_API_KEY,
     },
 
@@ -81,6 +81,7 @@ function validateConfig() {
     const required = [
         'discord.botToken',
         'database.mongoUri',
+        'api.wosApiSecret',
     ];
 
     const missing = [];

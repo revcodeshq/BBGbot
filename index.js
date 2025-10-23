@@ -57,11 +57,17 @@ if (missingConfig.length > 0) {
     process.exit(1);
 }
 
-// Optimized MongoDB connection
-startupOptimizer.connectMongoDB(get('database.mongoUri')).catch(err => {
-    console.error('MongoDB connection error:', err);
-    process.exit(1);
-});
+// Optimized MongoDB connection with proper error handling
+let mongoConnected = false;
+startupOptimizer.connectMongoDB(get('database.mongoUri'))
+    .then(() => {
+        mongoConnected = true;
+        console.log('[Startup] MongoDB connection confirmed');
+    })
+    .catch(err => {
+        console.error('MongoDB connection error:', err);
+        process.exit(1);
+    });
 
 // Discord Client Setup with optimized intents
 const client = new Client({
@@ -562,17 +568,38 @@ async function runNicknameSync(client) {
 
 // --- Bot Ready Event ---
 client.once('clientReady', async () => {
+	// Wait for MongoDB connection before starting background tasks
+	if (!mongoConnected) {
+		console.log('[Startup] Waiting for MongoDB connection...');
+		// Wait up to 10 seconds for MongoDB connection
+		let attempts = 0;
+		while (!mongoConnected && attempts < 100) {
+			await new Promise(resolve => setTimeout(resolve, 100));
+			attempts++;
+		}
+		
+		if (!mongoConnected) {
+			console.error('[Startup] MongoDB connection timeout - background tasks will be delayed');
+		}
+	}
+
 	// Set bot ready time for metrics
 	metrics.setBotReadyTime();
-	// 1. Start the Announcement Scheduler (runs every minute)
-	console.log('[Scheduler] Background announcement checker started.');
-	setInterval(() => checkSchedules(client), 10 * 1000);
+	
+	// Only start background tasks if MongoDB is connected
+	if (mongoConnected) {
+		// 1. Start the Announcement Scheduler (runs every minute)
+		console.log('[Scheduler] Background announcement checker started.');
+		setInterval(() => checkSchedules(client), 10 * 1000);
 
-	// 2. Start the Nickname Sync (runs every 10 minutes)
-	console.log('[Nickname Sync] Background checker started.');
-	// Run once on start, then repeat every 10 minutes
-	runNicknameSync(client);
-	setInterval(() => runNicknameSync(client), 10 * 60 * 1000);
+		// 2. Start the Nickname Sync (runs every 10 minutes)
+		console.log('[Nickname Sync] Background checker started.');
+		// Run once on start, then repeat every 10 minutes
+		runNicknameSync(client);
+		setInterval(() => runNicknameSync(client), 10 * 60 * 1000);
+	} else {
+		console.log('[Startup] Background tasks delayed - MongoDB not connected');
+	}
 
     // 3. Start the Giveaway and Poll Enders
     require('./src/tasks/giveaway-ender.js')(client);
@@ -715,7 +742,11 @@ client.once('clientReady', async () => {
         }
     }
 
-    // Run once on startup, then every 5 minutes
-    updateEventScheduleEmbed();
-    setInterval(updateEventScheduleEmbed, 5 * 60 * 1000);
+    // Run once on startup, then every 5 minutes (only if MongoDB is connected)
+    if (mongoConnected) {
+        updateEventScheduleEmbed();
+        setInterval(updateEventScheduleEmbed, 5 * 60 * 1000);
+    } else {
+        console.log('[Startup] Event schedule updater delayed - MongoDB not connected');
+    }
 });

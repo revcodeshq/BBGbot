@@ -189,11 +189,13 @@ class HealthCheckSystem {
     }
 
     /**
-     * Checks if events are loaded
+     * Checks if events are properly loaded
      */
     checkEventsLoaded() {
-        const eventCount = this.client.events?.size || 0;
-        const expectedEvents = 6; // Based on your bot
+        // Count the number of event listeners on the client
+        const eventListeners = this.client.eventNames();
+        const eventCount = eventListeners.length;
+        const expectedEvents = 3; // Critical events: ready, interactionCreate, messageCreate (optional events loaded later)
         
         let status = 'healthy';
         if (eventCount < expectedEvents) {
@@ -207,7 +209,8 @@ class HealthCheckSystem {
             status: status,
             loaded: eventCount,
             expected: expectedEvents,
-            missing: expectedEvents - eventCount
+            missing: expectedEvents - eventCount,
+            events: eventListeners
         };
     }
 

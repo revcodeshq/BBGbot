@@ -2,6 +2,7 @@ const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
 const User = require('../database/models.User');
 const logger = require('../utils/logger');
 const { getFurnaceLevelName } = require('../utils/game-utils.js');
+const { get } = require('../utils/config');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -23,7 +24,7 @@ module.exports = {
     // Fetch player info from API
     const crypto = require('crypto');
     const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
-    const secret = 'tB87#kPtkxqOS2';
+    const secret = get('api.wosApiSecret');
     const currentTime = Date.now();
     const baseForm = `fid=${fid}&time=${currentTime}`;
     const sign = crypto.createHash('md5').update(baseForm + secret).digest('hex');

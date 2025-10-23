@@ -7,11 +7,17 @@ const { setTimer } = require('../commands/timer.js');
 const { getPlayerInfo } = require('../commands/playerinfo.js');
 const { createRally } = require('../commands/rally.js');
 const { addQuote } = require('../commands/quote.js');
+const { metrics } = require('../utils/metrics');
 
 module.exports = {
     name: 'messageCreate',
     async execute(message, client) {
         if (message.author.bot || !message.guild) return;
+        
+        // Track message metrics
+        metrics.trackMessage();
+        metrics.trackUser(message.author.id, message.guild.id);
+        
         if (!message.mentions.has(client.user.id)) return;
 
         const content = message.content.replace(/<@!?\d+>/, '').trim();

@@ -7,12 +7,17 @@ const Timer = require('../database/models.Timer'); // <-- ADDED
 const HelpMessage = require('../database/models.HelpMessage');
 const { brandingText } = require('../utils/branding.js');
 const { getStaticHelpEmbed } = require('../utils/help.js');
+const { metrics } = require('../utils/metrics');
 
 module.exports = {
     name: 'clientReady',
     once: true,
     async execute(client) {
         console.log(`Ready! Logged in as ${client.user.tag}`);
+        
+        // Set bot ready time for metrics
+        metrics.setBotReadyTime();
+        console.log('📊 Metrics system initialized');
         // Set a custom activity/status
     client.user.setActivity('👑 BBG Alliance | Type /help', { type: ActivityType.Watching });
 
@@ -22,17 +27,42 @@ module.exports = {
             const guild = await client.guilds.fetch(guildId);
             if (guild && guild.iconURL()) {
                 const iconUrl = guild.iconURL({ extension: 'png', size: 512 });
-                // Download the image as a buffer
+                
+                // Download the image as a buffer with better error handling
                 const axios = require('axios');
-                const response = await axios.get(iconUrl, { responseType: 'arraybuffer' });
+                const response = await axios.get(iconUrl, { 
+                    responseType: 'arraybuffer',
+                    timeout: 10000, // 10 second timeout
+                    maxContentLength: 8 * 1024 * 1024 // 8MB max size
+                });
+                
                 const imageBuffer = Buffer.from(response.data, 'binary');
+                
+                // Validate image buffer size (Discord limit is 8MB)
+                if (imageBuffer.length > 8 * 1024 * 1024) {
+                    console.warn('Guild icon too large, skipping avatar update.');
+                    return;
+                }
+                
+                // Validate image buffer is not empty
+                if (imageBuffer.length === 0) {
+                    console.warn('Guild icon buffer is empty, skipping avatar update.');
+                    return;
+                }
+                
                 await client.user.setAvatar(imageBuffer);
                 console.log('Bot avatar updated to guild icon.');
             } else {
                 console.warn('Guild icon not found or guild fetch failed.');
             }
         } catch (err) {
-            console.error('Failed to set bot avatar to guild icon:', err);
+            if (err.code === 50035) {
+                console.warn('Discord API rejected avatar update (invalid format/size), skipping.');
+            } else if (err.code === 429) {
+                console.warn('Rate limited while updating avatar, skipping.');
+            } else {
+                console.error('Failed to set bot avatar to guild icon:', err.message);
+            }
         }
 
         // --- Persistent Bot Info Message ---
@@ -45,7 +75,12 @@ module.exports = {
                 let infoMessage;
                 try {
                     infoMessage = await channel.messages.fetch(botInfoDoc.messageId);
-                } catch (err) {
+                } catch (fetchError) {
+                    if (fetchError.code === 10008) {
+                        console.warn('Bot info message was deleted, removing from database.');
+                        await BotInfoMessage.findOneAndDelete({ guildId: get('discord.guildId') });
+                        return;
+                    }
                     infoMessage = null;
                 }
                 const infoEmbed = await generateBotInfoEmbed(client);
@@ -69,7 +104,12 @@ module.exports = {
                 }
             }
         } catch (err) {
-            console.error('Error restoring/updating persistent bot info message:', err);
+            if (err.code === 10008) {
+                console.warn('Bot info message not found, removing from database.');
+                await BotInfoMessage.findOneAndDelete({ guildId: get('discord.guildId') });
+            } else {
+                console.error('Error restoring/updating persistent bot info message:', err);
+            }
         }
 
         // Collect all command data
@@ -97,13 +137,30 @@ module.exports = {
             const helpMessageDoc = await HelpMessage.findOne({ guildId: get('discord.guildId') });
             if (helpMessageDoc) {
                 const channel = await client.channels.fetch(helpMessageDoc.channelId);
-                const message = await channel.messages.fetch(helpMessageDoc.messageId);
+                let message;
+                
+                try {
+                    message = await channel.messages.fetch(helpMessageDoc.messageId);
+                } catch (fetchError) {
+                    if (fetchError.code === 10008) {
+                        console.warn('Persistent help message was deleted, removing from database.');
+                        await HelpMessage.findOneAndDelete({ guildId: get('discord.guildId') });
+                        return;
+                    }
+                    throw fetchError;
+                }
+                
                 const helpEmbed = getStaticHelpEmbed();
                 await message.edit({ embeds: [helpEmbed] });
                 console.log('Persistent help message updated.');
             }
         } catch (error) {
-            console.error('Error updating persistent help message:', error);
+            if (error.code === 10008) {
+                console.warn('Persistent help message not found, removing from database.');
+                await HelpMessage.findOneAndDelete({ guildId: get('discord.guildId') });
+            } else {
+                console.error('Error updating persistent help message:', error);
+            }
         }
 
         // Static verify button message in verification channel

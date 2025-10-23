@@ -6,8 +6,8 @@ const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fet
 
 // --- Gemini API Configuration ---
 const API_KEY = process.env.GEMINI_API_KEY || ""; 
-const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${API_KEY}`;
-const MODEL_NAME = 'gemini-2.5-flash-preview-05-20'; // Model optimized for quick, grounded Q&A
+const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${API_KEY}`;
+const MODEL_NAME = 'gemini-2.5-pro'; // Model optimized for quick, grounded Q&A
 
 /**
  * Calls the Gemini API to provide a comprehensive answer using Google Search grounding.
@@ -19,18 +19,39 @@ async function getGuideResponse(prompt) {
         throw new Error("GEMINI_API_KEY is not set in environment variables.");
     }
 
-    // --- UPDATED SYSTEM PROMPT FOR WHITEOUT SURVIVAL SPECIALIZATION ---
-    const systemPrompt = `You are an expert guide for the game **Whiteout Survival** alliance. Your knowledge covers all aspects of the game: heroes, resources, strategy, and mechanics. 
-    Provide a concise, easy-to-read answer to the user's question. Focus on clarity and accuracy, and **make sure your answer is specific to the Whiteout Survival game**. 
-    Use the provided Google Search results to ground your answer and ensure the information is up-to-date.
-    Format your response clearly using paragraphs or bullet points within a single text block.`;
-    // --- END UPDATED SYSTEM PROMPT ---
+    // --- ENHANCED SYSTEM PROMPT FOR WHITEOUT SURVIVAL ---
+    const systemPrompt = `You are an expert guide for **Whiteout Survival**, a mobile survival strategy game. Your knowledge covers all aspects of the game: base building, resource management, alliance warfare, heroes, and game mechanics.
+
+**IMPORTANT GAME FACTS:**
+- Whiteout Survival is a survival strategy game, NOT a hero collection game
+- Focus on base building, resource management, and alliance warfare
+- Heroes are obtained through recruitment and have different rarities
+- The game has daily tasks, events, and alliance vs alliance combat
+
+**RESPONSE GUIDELINES:**
+- Provide detailed, comprehensive answers about Whiteout Survival
+- Focus on survival strategies, base building, resource management, and alliance gameplay
+- Give specific, actionable advice with step-by-step guidance
+- Include multiple strategies and approaches when relevant
+- Use bullet points and clear formatting for easy reading
+- Use the provided Google Search results to ground your answer and ensure accuracy
+- If you're unsure about specific game mechanics, say so rather than guessing
+
+**DO NOT** mention game mechanics that don't exist in Whiteout Survival.
+
+Answer the user's question with comprehensive, detailed guidance about Whiteout Survival.`;
 
     const payload = {
         contents: [{ parts: [{ text: prompt }] }],
         // Enable Google Search for up-to-date, real-time information
         tools: [{ "google_search": {} }],
         systemInstruction: { parts: [{ text: systemPrompt }] },
+        generationConfig: {
+            temperature: 0.7, // Balanced creativity and accuracy
+            topK: 40,
+            topP: 0.95,
+            maxOutputTokens: 15000, // Much longer responses
+        }
     };
 
     try {
@@ -87,7 +108,7 @@ module.exports = {
         if (!API_KEY) {
              return interaction.editReply({ 
                 content: "❌ API Key Error: The bot administrator must set the `GEMINI_API_KEY` in the environment file to enable the `/guide` command.", 
-                flags: 64 
+                ephemeral: true 
             });
         }
         
@@ -108,23 +129,48 @@ module.exports = {
             }
             
             const guideEmbed = new EmbedBuilder()
-                .setColor('#FEE75C') // Discord yellow for guides/info
-                .setTitle(`📚 Whiteout Survival Guide: ${question.substring(0, 50)}${question.length > 50 ? '...' : ''}`)
-                .setAuthor({ name: interaction.user.tag, iconURL: interaction.user.displayAvatarURL() })
-                .setDescription(text.substring(0, 4096)) // Ensure text is within Discord limit
+                .setColor('#00D4FF') // Bright blue for guides/info
+                .setTitle(`🎮 Whiteout Survival Guide`)
+                .setAuthor({ 
+                    name: `${interaction.user.displayName}'s Question`, 
+                    iconURL: interaction.user.displayAvatarURL() 
+                })
+                .addFields([
+                    { 
+                        name: '❓ Question', 
+                        value: question.length > 1000 ? question.substring(0, 997) + '...' : question, 
+                        inline: false 
+                    },
+                    { 
+                        name: '💡 Answer', 
+                        value: text.length > 1000 ? text.substring(0, 997) + '...' : text, 
+                        inline: false 
+                    }
+                ])
                 .setTimestamp()
                 .setFooter({ 
-                    text: (sourceField ? `Sources: ${sourceField}` : 'No external sources cited.') + ` | ${brandingText}`,
-                    iconURL: 'https://i.imgur.com/L3r7Vf6.png' // A generic knowledge/book icon 
+                    text: (sourceField ? `📚 Sources: ${sourceField}` : '📚 No external sources cited.') + ` • ${brandingText}`,
+                    iconURL: 'https://i.imgur.com/L3r7Vf6.png'
                 });
 
             await interaction.editReply({ embeds: [guideEmbed] });
 
         } catch (error) {
             console.error("Guide command execution failed:", error);
+            
+            // Better error handling with more helpful messages
+            let errorMessage = "❌ **Guide Error**";
+            if (error.message.includes("API error")) {
+                errorMessage += "\n\n🚫 **API Error**: The AI service is temporarily unavailable. Please try again in a few moments.";
+            } else if (error.message.includes("GEMINI_API_KEY")) {
+                errorMessage += "\n\n🔑 **Configuration Error**: The bot administrator needs to set up the API key.";
+            } else {
+                errorMessage += `\n\n⚠️ **Error**: ${error.message}`;
+            }
+            
             await interaction.editReply({ 
-                content: `❌ Guide Error: I couldn't process that question. Reason: \`${error.message}\``,
-                flags: 64 
+                content: errorMessage,
+                ephemeral: true 
             });
         }
     },

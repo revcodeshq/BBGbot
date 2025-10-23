@@ -118,6 +118,50 @@ All variables have sensible defaults, but you can customize:
 - `WOS_API_SECRET`: Defaults to public API secret if not provided
 - Channel names for logging are automatically detected
 
+## 🚀 Quick Start
+
+### **Development**
+```bash
+# Clone repository
+git clone https://github.com/revcodeshq/BBGbot.git
+cd BBGbot
+
+# Install dependencies
+npm install
+
+# Configure environment
+cp .env.example .env
+# Edit .env with your values
+
+# Start development server
+npm run dev
+```
+
+### **Production Deployment**
+```bash
+# Using Docker Compose (Recommended)
+docker-compose up -d
+
+# Using Docker
+docker build -t bbg-discord-bot .
+docker run -d --name bbg-bot --env-file .env.production bbg-discord-bot
+
+# Manual deployment
+npm run prod
+```
+
+### **Health Checks**
+```bash
+# Check bot health
+npm run health-check
+
+# Validate production environment
+npm run validate-production
+
+# Docker health check
+docker-compose exec bbg-bot npm run health-check
+```
+
 ## 🎯 Usage
 
 ### Basic Commands
@@ -145,6 +189,8 @@ All variables have sensible defaults, but you can customize:
 - `/assignrole <user> <BT1|BT2>` - Assign battle group roles
 - `/setup-bot-info` - Configure dynamic bot information display
 - `/pinmessage <message_id>` - Pin important messages
+- `/health` - Check bot health status and diagnostics
+- `/metrics` - View bot performance metrics
 
 ### Automatic Features
 - **Translation**: Messages are automatically translated between English and Korean

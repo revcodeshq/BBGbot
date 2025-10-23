@@ -12,30 +12,58 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
+
+// Core utilities (loaded first)
 const logger = require('./src/utils/logger');
+const productionLogger = require('./src/utils/production-logger');
+const ProductionValidator = require('./src/utils/production-validator');
+const HealthCheckSystem = require('./src/utils/health-check');
 const { brandingText } = require('./src/utils/branding.js');
 const { getFurnaceLevelName } = require('./src/utils/game-utils.js');
 const { validateConfig, get } = require('./src/utils/config');
+const { ErrorHandler } = require('./src/utils/error-handler');
+const { metrics } = require('./src/utils/metrics');
+const { startupOptimizer } = require('./src/utils/startup-optimizer');
+const { discordOptimizer } = require('./src/utils/discord-optimizer');
+const { performanceMonitor } = require('./src/utils/performance-monitor');
+const { advancedCache } = require('./src/utils/advanced-cache');
+const { smartRateLimiter } = require('./src/utils/smart-rate-limiter');
 
 require('dotenv').config();
+
+// Production environment validation
+if (process.env.NODE_ENV === 'production') {
+    const validator = new ProductionValidator();
+    const validation = validator.generateProductionReport();
+    
+    if (!validation.isValid) {
+        productionLogger.error('Production environment validation failed', {
+            errors: validation.errors,
+            warnings: validation.warnings
+        });
+        process.exit(1);
+    }
+    
+    productionLogger.info('Production environment validation passed');
+}
 
 // Validate configuration
 const missingConfig = validateConfig();
 if (missingConfig.length > 0) {
+    productionLogger.error('Missing required configuration', { missingConfig });
     console.error('Missing required configuration:');
     missingConfig.forEach(key => console.error(`  - ${key}`));
     console.error('Please check your .env file and ensure all required variables are set.');
     process.exit(1);
 }
 
-// Connect to MongoDB
-mongoose.connect(get('database.mongoUri')).then(() => {
-    console.log('Connected to MongoDB');
-}).catch(err => {
+// Optimized MongoDB connection
+startupOptimizer.connectMongoDB(get('database.mongoUri')).catch(err => {
     console.error('MongoDB connection error:', err);
+    process.exit(1);
 });
 
-// Discord Client Setup
+// Discord Client Setup with optimized intents
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
@@ -54,32 +82,105 @@ const client = new Client({
 });
 client.commands = new Collection();
 
-// Command Loader
-const commandsPath = path.join(__dirname, 'src', 'commands');
-if (fs.existsSync(commandsPath)) {
-    const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js'));
-    for (const file of commandFiles) {
-        const command = require(path.join(commandsPath, file));
-        client.commands.set(command.data.name, command);
+// Optimized Command and Event Loading
+async function initializeBot() {
+    try {
+        console.log('[Startup] Initializing bot with optimized loading...');
+        
+        // Create lazy loaders
+        const commandsPath = path.join(__dirname, 'src', 'commands');
+        const eventsPath = path.join(__dirname, 'src', 'events');
+        
+        const commandLoader = startupOptimizer.createLazyCommandLoader(commandsPath);
+        const eventLoader = startupOptimizer.createLazyEventLoader(eventsPath);
+        
+        // Load critical events first
+        await eventLoader.loadCriticalEvents(client);
+        
+        // Load all commands in parallel
+        const allCommands = await commandLoader.getAllCommands();
+        allCommands.forEach((command, name) => {
+            client.commands.set(name, command);
+        });
+        
+        console.log(`[Startup] Loaded ${allCommands.size} commands`);
+        
+        // Login to Discord
+        await client.login(process.env.BOT_TOKEN);
+        
+        // Load optional events after login
+        await eventLoader.loadOptionalEvents(client);
+        
+        console.log('[Startup] Bot initialization completed successfully');
+        
+        // Initialize health check system
+        client.healthCheck = new HealthCheckSystem(client);
+        productionLogger.info('Health check system initialized');
+        
+        // Set up graceful shutdown handlers
+        setupGracefulShutdown(client);
+        
+    } catch (error) {
+        productionLogger.error('Bot initialization failed', { error: error.message, stack: error.stack });
+        console.error('[Startup] Bot initialization failed:', error);
+        process.exit(1);
     }
 }
 
-// Event Loader
-const eventsPath = path.join(__dirname, 'src', 'events');
-if (fs.existsSync(eventsPath)) {
-	const eventFiles = fs.readdirSync(eventsPath).filter(file => file.endsWith('.js'));
-	for (const file of eventFiles) {
-		const event = require(path.join(eventsPath, file));
-		if (event.once) {
-			client.once(event.name, (...args) => event.execute(...args, client));
-		} else {
-			client.on(event.name, (...args) => event.execute(...args, client));
-		}
-	}
+/**
+ * Sets up graceful shutdown handling
+ */
+function setupGracefulShutdown(client) {
+    const gracefulShutdown = async (signal) => {
+        productionLogger.info(`Received ${signal}, shutting down gracefully`);
+        
+        try {
+            // Stop accepting new connections
+            if (client.isReady()) {
+                productionLogger.info('Disconnecting from Discord...');
+                await client.destroy();
+            }
+            
+            // Close database connections
+            if (mongoose.connection.readyState === 1) {
+                productionLogger.info('Closing database connection...');
+                await mongoose.connection.close();
+            }
+            
+            // Stop health monitoring
+            if (client.healthCheck) {
+                productionLogger.info('Stopping health monitoring...');
+                // Health check system cleanup would go here
+            }
+            
+            productionLogger.info('Graceful shutdown completed');
+            process.exit(0);
+            
+        } catch (error) {
+            productionLogger.error('Error during graceful shutdown', { error: error.message });
+            process.exit(1);
+        }
+    };
+    
+    // Handle different shutdown signals
+    process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+    process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+    process.on('SIGHUP', () => gracefulShutdown('SIGHUP'));
 }
 
-// Login
-client.login(process.env.BOT_TOKEN);
+// Start initialization
+initializeBot();
+
+// Global error handlers to prevent crashes
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+    // Don't exit the process, just log the error
+});
+
+process.on('uncaughtException', (error) => {
+    console.error('Uncaught Exception:', error);
+    // Don't exit the process, just log the error
+});
 
 // --- Scheduled Nickname Sync and Announcement Checker ---
 const User = require('./src/database/models.User');
@@ -311,30 +412,45 @@ async function runNicknameSync(client) {
 		return;
 	}
 	
-	const guild = client.guilds.cache.get(process.env.GUILD_ID);
+	const guild = client.guilds.cache.get(get('discord.guildId'));
 	if (!guild) {
 		console.warn('GUILD_ID not found in cache. Skipping nickname sync.');
 		return;
 	}
 
 	const users = await User.find({ verified: true });
-	let apiFailuresThisRun = 0;
+	
+	// Use optimized batch processing for nickname sync
+	const nicknameUpdates = users.map(user => ({
+		userId: user.discordId,
+		nickname: null // Will be set below
+	}));
+
+	// Batch fetch all members first
+	const memberMap = await discordOptimizer.batchFetchMembers(guild, users.map(u => u.discordId), false);
+	
+	// Process nickname updates
+	const syncResults = [];
 	for (const user of users) {
 		try {
-			// Fetch the member, gracefully handling if they have left
-			const member = await guild.members.fetch({ user: user.discordId, force: false });
-			if (!member) continue; // Skip if user is no longer in the guild
+			const member = memberMap.get(user.discordId);
+			if (!member) {
+				syncResults.push({ success: false, reason: 'User not in guild' });
+				continue;
+			}
 			
 			// Skip guild owner - they shouldn't have their nickname changed
 			if (member.id === guild.ownerId) {
+				syncResults.push({ success: false, reason: 'Guild owner' });
 				continue;
 			}
+			
 			let nickname = null;
 			let furnace = '';
 
 			if (user.gameId) {
 				const currentTime = Date.now();
-				const secret = process.env.WOS_API_SECRET || 'tB87#kPtkxqOS2'; // Use secret from env or default
+				const secret = get('api.wosApiSecret');
 				const baseForm = `fid=${user.gameId}&time=${currentTime}`;
 				const sign = crypto.createHash('md5').update(baseForm + secret).digest('hex');
 				const fullForm = `sign=${sign}&${baseForm}`;
@@ -350,7 +466,7 @@ async function runNicknameSync(client) {
 					const contentType = response.headers.get('content-type');
 					if (!contentType || !contentType.includes('application/json')) {
 						console.warn(`[Nickname Sync] API returned non-JSON response for FID ${user.gameId}. Likely maintenance or error page.`);
-						continue; // Skip this user, keep existing nickname
+						return { success: false, reason: 'API maintenance' };
 					}
 
 					const data = await response.json();
@@ -362,7 +478,7 @@ async function runNicknameSync(client) {
 						}
 					} else if (data && data.code !== 0) {
 						console.warn(`[Nickname Sync] API error for FID ${user.gameId}: ${data.msg || 'Unknown error'}`);
-						continue; // Skip this user
+						return { success: false, reason: 'API error' };
 					}
 				} catch (apiErr) {
 					// Handle specific JSON parsing errors
@@ -371,8 +487,7 @@ async function runNicknameSync(client) {
 					} else {
 						console.error(`[Nickname Sync] API error for FID ${user.gameId}:`, apiErr.message);
 					}
-					apiFailuresThisRun++;
-					continue; // Skip this user, don't change their nickname
+					return { success: false, reason: 'API error', error: apiErr };
 				}
 			}
 
@@ -384,17 +499,49 @@ async function runNicknameSync(client) {
 
 				// Only update if the nickname is different to avoid API spam
 				if (member.nickname !== finalNickname) {
-					await member.setNickname(finalNickname, 'Automated Nickname Sync');
+					syncResults.push({ success: true, nickname: finalNickname, userId: user.discordId });
+				} else {
+					syncResults.push({ success: true, reason: 'No change needed' });
 				}
+			} else {
+				syncResults.push({ success: false, reason: 'No nickname data' });
 			}
 
 		} catch (err) {
 			// Error code 10007 (Unknown User) is handled by fetch, but this catches other permission errors
 			if (err.code === 50013) {
 				console.warn(`[Nickname Sync] Missing permissions to change nickname for ${user.discordId}. Ensure bot role is high.`);
+				syncResults.push({ success: false, reason: 'Permission error' });
 			} else if (err.code !== 10007) {
 				console.error(`[Nickname Sync] Failed to update nickname for ${user.discordId}:`, err.message);
+				syncResults.push({ success: false, reason: 'Unknown error', error: err });
+			} else {
+				syncResults.push({ success: false, reason: 'User not found' });
 			}
+		}
+	}
+
+	// Batch update nicknames for efficiency
+	const updatesToProcess = syncResults
+		.filter(result => result.success && result.nickname)
+		.map(result => ({ userId: result.userId, nickname: result.nickname }));
+
+	if (updatesToProcess.length > 0) {
+		const batchResults = await discordOptimizer.batchUpdateNicknames(guild, updatesToProcess);
+		console.log(`[Nickname Sync] Batch updated ${batchResults.filter(r => r.success).length} nicknames`);
+	}
+	
+	// Process results and update failure tracking
+	let apiFailuresThisRun = 0;
+	let successfulUpdates = 0;
+	
+	for (const result of syncResults) {
+		if (!result.success) {
+			if (result.reason === 'API error' || result.reason === 'API maintenance') {
+				apiFailuresThisRun++;
+			}
+		} else if (result.nickname) {
+			successfulUpdates++;
 		}
 	}
 	
@@ -408,11 +555,15 @@ async function runNicknameSync(client) {
 			console.log(`[Nickname Sync] Completed with ${apiFailuresThisRun} failures. API appears to be working.`);
 		}
 	}
+	
+	console.log(`[Nickname Sync] Completed: ${successfulUpdates} nicknames updated, ${apiFailuresThisRun} API failures`);
 }
 
 
 // --- Bot Ready Event ---
 client.once('clientReady', async () => {
+	// Set bot ready time for metrics
+	metrics.setBotReadyTime();
 	// 1. Start the Announcement Scheduler (runs every minute)
 	console.log('[Scheduler] Background announcement checker started.');
 	setInterval(() => checkSchedules(client), 10 * 1000);

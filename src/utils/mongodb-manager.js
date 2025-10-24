@@ -13,17 +13,14 @@ class MongoDBManager {
         this.maxReconnectAttempts = 10;
         this.reconnectDelay = 5000; // 5 seconds
         this.maxReconnectDelay = 60000; // 1 minute
+        this.mongoUri = null; // Store the URI for reconnection
         this.connectionOptions = {
             maxPoolSize: 10,
             serverSelectionTimeoutMS: 5000,
             socketTimeoutMS: 45000,
             connectTimeoutMS: 10000,
-            bufferCommands: false,
+            bufferCommands: true, // Enable buffering to allow operations before connection
             bufferMaxEntries: 0,
-            // Enable automatic reconnection
-            autoReconnect: true,
-            reconnectTries: Number.MAX_VALUE,
-            reconnectInterval: 1000,
             // Heartbeat settings
             heartbeatFrequencyMS: 10000,
             serverSelectionRetryDelayMS: 5000
@@ -50,6 +47,9 @@ class MongoDBManager {
             this.connectionState = 'error';
             return false;
         }
+
+        // Store URI for reconnection
+        this.mongoUri = mongoUri;
 
         if (this.isConnecting) {
             console.log('[MongoDB] Connection already in progress, waiting...');
@@ -195,9 +195,9 @@ class MongoDBManager {
         try {
             console.log(`[MongoDB] Attempting reconnection (attempt ${this.reconnectAttempts})`);
             
-            // Try to reconnect using the existing connection
-            if (mongoose.connection.readyState === 0 && mongoose.connection.uri) {
-                await mongoose.connection.openUri(mongoose.connection.uri, this.connectionOptions);
+            // Use stored URI for reconnection
+            if (this.mongoUri) {
+                await mongoose.connect(this.mongoUri, this.connectionOptions);
             } else {
                 console.warn('[MongoDB] Cannot reconnect - no URI available');
                 return;

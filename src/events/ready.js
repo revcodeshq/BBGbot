@@ -8,6 +8,7 @@ const HelpMessage = require('../database/models.HelpMessage');
 const { brandingText } = require('../utils/branding.js');
 const { getStaticHelpEmbed } = require('../utils/help.js');
 const { metrics } = require('../utils/metrics');
+const mongodbManager = require('../utils/mongodb-manager');
 
 module.exports = {
     name: 'clientReady',
@@ -69,44 +70,59 @@ module.exports = {
         try {
             const BotInfoMessage = require('../database/models/BotInfoMessage');
             const { generateBotInfoEmbed } = require('../utils/bot-info.js');
-            const botInfoDoc = await BotInfoMessage.findOne({ guildId: get('discord.guildId') });
-            if (botInfoDoc) {
-                const channel = await client.channels.fetch(botInfoDoc.channelId);
-                let infoMessage;
-                try {
-                    infoMessage = await channel.messages.fetch(botInfoDoc.messageId);
-                } catch (fetchError) {
-                    if (fetchError.code === 10008) {
-                        console.warn('Bot info message was deleted, removing from database.');
-                        await BotInfoMessage.findOneAndDelete({ guildId: get('discord.guildId') });
-                        return;
+            
+            // Wait for MongoDB connection before proceeding
+            if (await mongodbManager.isHealthy()) {
+                const botInfoDoc = await mongodbManager.executeWithRetry(async () => {
+                    return await BotInfoMessage.findOne({ guildId: get('discord.guildId') });
+                }, 3, 'bot-info-fetch');
+                
+                if (botInfoDoc) {
+                    const channel = await client.channels.fetch(botInfoDoc.channelId);
+                    let infoMessage;
+                    try {
+                        infoMessage = await channel.messages.fetch(botInfoDoc.messageId);
+                    } catch (fetchError) {
+                        if (fetchError.code === 10008) {
+                            console.warn('Bot info message was deleted, removing from database.');
+                            await mongodbManager.executeWithRetry(async () => {
+                                await BotInfoMessage.findOneAndDelete({ guildId: get('discord.guildId') });
+                            }, 3, 'bot-info-delete');
+                            return;
+                        }
+                        infoMessage = null;
                     }
-                    infoMessage = null;
+                    const infoEmbed = await generateBotInfoEmbed(client);
+                    if (infoMessage) {
+                        // Update the embed to keep info fresh
+                        await infoMessage.edit({ embeds: [infoEmbed] });
+                        console.log('Bot info message found and updated.');
+                    } else {
+                        // Message missing, re-send and update DB
+                        const newMsg = await channel.send({ embeds: [infoEmbed] });
+                        await mongodbManager.executeWithRetry(async () => {
+                            await BotInfoMessage.findOneAndUpdate(
+                                { guildId: channel.guild.id },
+                                {
+                                    guildId: channel.guild.id,
+                                    channelId: channel.id,
+                                    messageId: newMsg.id,
+                                },
+                                { upsert: true, new: true }
+                            );
+                        }, 3, 'bot-info-update');
+                        console.log('Bot info message was missing and has been restored.');
+                    }
                 }
-                const infoEmbed = await generateBotInfoEmbed(client);
-                if (infoMessage) {
-                    // Update the embed to keep info fresh
-                    await infoMessage.edit({ embeds: [infoEmbed] });
-                    console.log('Bot info message found and updated.');
-                } else {
-                    // Message missing, re-send and update DB
-                    const newMsg = await channel.send({ embeds: [infoEmbed] });
-                    await BotInfoMessage.findOneAndUpdate(
-                        { guildId: channel.guild.id },
-                        {
-                            guildId: channel.guild.id,
-                            channelId: channel.id,
-                            messageId: newMsg.id,
-                        },
-                        { upsert: true, new: true }
-                    );
-                    console.log('Bot info message was missing and has been restored.');
-                }
+            } else {
+                console.warn('MongoDB not healthy, skipping bot info message update');
             }
         } catch (err) {
             if (err.code === 10008) {
                 console.warn('Bot info message not found, removing from database.');
-                await BotInfoMessage.findOneAndDelete({ guildId: get('discord.guildId') });
+                await mongodbManager.executeWithRetry(async () => {
+                    await BotInfoMessage.findOneAndDelete({ guildId: get('discord.guildId') });
+                }, 3, 'bot-info-delete');
             } else {
                 console.error('Error restoring/updating persistent bot info message:', err);
             }
@@ -134,30 +150,42 @@ module.exports = {
         }
 
         try {
-            const helpMessageDoc = await HelpMessage.findOne({ guildId: get('discord.guildId') });
-            if (helpMessageDoc) {
-                const channel = await client.channels.fetch(helpMessageDoc.channelId);
-                let message;
+            // Wait for MongoDB connection before proceeding
+            if (await mongodbManager.isHealthy()) {
+                const helpMessageDoc = await mongodbManager.executeWithRetry(async () => {
+                    return await HelpMessage.findOne({ guildId: get('discord.guildId') });
+                }, 3, 'help-message-fetch');
                 
-                try {
-                    message = await channel.messages.fetch(helpMessageDoc.messageId);
-                } catch (fetchError) {
-                    if (fetchError.code === 10008) {
-                        console.warn('Persistent help message was deleted, removing from database.');
-                        await HelpMessage.findOneAndDelete({ guildId: get('discord.guildId') });
-                        return;
+                if (helpMessageDoc) {
+                    const channel = await client.channels.fetch(helpMessageDoc.channelId);
+                    let message;
+                    
+                    try {
+                        message = await channel.messages.fetch(helpMessageDoc.messageId);
+                    } catch (fetchError) {
+                        if (fetchError.code === 10008) {
+                            console.warn('Persistent help message was deleted, removing from database.');
+                            await mongodbManager.executeWithRetry(async () => {
+                                await HelpMessage.findOneAndDelete({ guildId: get('discord.guildId') });
+                            }, 3, 'help-message-delete');
+                            return;
+                        }
+                        throw fetchError;
                     }
-                    throw fetchError;
+                    
+                    const helpEmbed = getStaticHelpEmbed();
+                    await message.edit({ embeds: [helpEmbed] });
+                    console.log('Persistent help message updated.');
                 }
-                
-                const helpEmbed = getStaticHelpEmbed();
-                await message.edit({ embeds: [helpEmbed] });
-                console.log('Persistent help message updated.');
+            } else {
+                console.warn('MongoDB not healthy, skipping help message update');
             }
         } catch (error) {
             if (error.code === 10008) {
                 console.warn('Persistent help message not found, removing from database.');
-                await HelpMessage.findOneAndDelete({ guildId: get('discord.guildId') });
+                await mongodbManager.executeWithRetry(async () => {
+                    await HelpMessage.findOneAndDelete({ guildId: get('discord.guildId') });
+                }, 3, 'help-message-delete');
             } else {
                 console.error('Error updating persistent help message:', error);
             }

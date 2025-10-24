@@ -20,10 +20,8 @@ class MongoDBManager {
             socketTimeoutMS: 45000,
             connectTimeoutMS: 10000,
             bufferCommands: true, // Enable buffering to allow operations before connection
-            bufferMaxEntries: 0,
             // Heartbeat settings
-            heartbeatFrequencyMS: 10000,
-            serverSelectionRetryDelayMS: 5000
+            heartbeatFrequencyMS: 10000
         };
         this.connectionListeners = new Set();
         this.isConnecting = false;

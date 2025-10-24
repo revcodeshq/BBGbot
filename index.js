@@ -57,17 +57,36 @@ if (missingConfig.length > 0) {
     process.exit(1);
 }
 
-// Optimized MongoDB connection with proper error handling
+// Robust MongoDB connection with automatic retry
 let mongoConnected = false;
+const mongodbManager = require('./src/utils/mongodb-manager');
+
+// Set up MongoDB connection with retry logic
 startupOptimizer.connectMongoDB(get('database.mongoUri'))
-    .then(() => {
-        mongoConnected = true;
-        console.log('[Startup] MongoDB connection confirmed');
+    .then((success) => {
+        mongoConnected = success;
+        if (success) {
+            console.log('[Startup] MongoDB connection confirmed');
+        } else {
+            console.log('[Startup] MongoDB connection will be retried automatically');
+        }
     })
     .catch(err => {
         console.error('MongoDB connection error:', err);
-        process.exit(1);
+        // Don't exit immediately, let the MongoDB manager handle reconnection
+        console.log('[Startup] Bot will continue with automatic MongoDB reconnection');
     });
+
+// Monitor MongoDB connection state
+mongodbManager.addConnectionListener((event, data) => {
+    if (event === 'connected' || event === 'reconnected') {
+        mongoConnected = true;
+        console.log('[MongoDB] Connection state updated: connected');
+    } else if (event === 'disconnected' || event === 'error') {
+        mongoConnected = false;
+        console.log('[MongoDB] Connection state updated: disconnected');
+    }
+});
 
 // Discord Client Setup with optimized intents
 const client = new Client({
@@ -148,10 +167,8 @@ function setupGracefulShutdown(client) {
             }
             
             // Close database connections
-            if (mongoose.connection.readyState === 1) {
-                productionLogger.info('Closing database connection...');
-                await mongoose.connection.close();
-            }
+            productionLogger.info('Closing database connection...');
+            await mongodbManager.disconnect();
             
             // Stop health monitoring
             if (client.healthCheck) {
@@ -204,6 +221,12 @@ const { EmbedBuilder } = require('discord.js');
  * @param {Client} client - Discord.js client instance
  */
 async function checkSchedules(client) {
+    // Check MongoDB connection before proceeding
+    if (!await mongodbManager.isHealthy()) {
+        console.warn('[Scheduler] MongoDB not healthy, skipping schedule check');
+        return;
+    }
+    
     const now = new Date();
     
     // Utility to get UTC time string offset by minutes.
@@ -234,10 +257,11 @@ async function checkSchedules(client) {
     const WARNING_COOLDOWN_MS = 2 * 60 * 1000; 
 
     try {
-        // Query the database for announcements matching the current exact time 
-        // OR any of the warning times in a single efficient query.
-        const announcements = await Announcement.find({ 
-            time: { $in: [currentTimeUTC, time15mWarning, time10mWarning, time5mWarning] } 
+        // Use MongoDB manager's retry mechanism for database operations
+        const announcements = await mongodbManager.executeWithRetry(async () => {
+            return await Announcement.find({ 
+                time: { $in: [currentTimeUTC, time15mWarning, time10mWarning, time5mWarning] } 
+            });
         });
 
         for (const ann of announcements) {
@@ -375,7 +399,9 @@ async function checkSchedules(client) {
                     
                     if (ann.interval === 'ONCE' && messageType === 'main') {
                         // For one-time schedules, delete immediately after the MAIN event sends
-                        await ann.deleteOne();
+                        await mongodbManager.executeWithRetry(async () => {
+                            await ann.deleteOne();
+                        });
                         console.log(`[Scheduler] Sent and deleted one-time announcement ID ${ann._id}`);
                         logAction += ' & Deleted'; // Update log action
                     } 
@@ -383,7 +409,9 @@ async function checkSchedules(client) {
                     // Update lastSent for ALL sends (warnings and recurring mains) to enforce the 2-minute cooldown.
                     if (ann.interval !== 'ONCE' || messageType !== 'main') {
                         ann.lastSent = now;
-                        await ann.save();
+                        await mongodbManager.executeWithRetry(async () => {
+                            await ann.save();
+                        });
                         console.log(`[Scheduler] Sent ${messageType} for ID ${ann._id}. Updated lastSent for cooldown.`);
                     }
                         
@@ -412,6 +440,12 @@ const maxApiFailures = 5;
 async function runNicknameSync(client) {
 	console.log('[Nickname Sync] Running background sync...');
 	
+	// Check MongoDB connection before proceeding
+	if (!await mongodbManager.isHealthy()) {
+		console.warn('[Nickname Sync] MongoDB not healthy, skipping sync');
+		return;
+	}
+	
 	// Skip sync if API has been consistently failing
 	if (consecutiveApiFailures >= maxApiFailures) {
 		console.warn(`[Nickname Sync] Skipping sync due to ${consecutiveApiFailures} consecutive API failures. API may be down.`);
@@ -424,7 +458,9 @@ async function runNicknameSync(client) {
 		return;
 	}
 
-	const users = await User.find({ verified: true });
+	const users = await mongodbManager.executeWithRetry(async () => {
+		return await User.find({ verified: true });
+	});
 	
 	// Use optimized batch processing for nickname sync
 	const nicknameUpdates = users.map(user => ({
@@ -665,9 +701,17 @@ client.once('clientReady', async () => {
 
     async function updateEventScheduleEmbed() {
         try {
+            // Check MongoDB connection before proceeding
+            if (!await mongodbManager.isHealthy()) {
+                console.warn('[EventScheduleUpdater] MongoDB not healthy, skipping update');
+                return;
+            }
+            
             const guildId = client.guilds.cache.first()?.id;
             if (!guildId) return;
-            const announcements = await Announcement.find({ guildId });
+            const announcements = await mongodbManager.executeWithRetry(async () => {
+                return await Announcement.find({ guildId });
+            });
             const now = new Date();
             const upcomingEvents = [];
             for (const ann of announcements) {
@@ -691,7 +735,9 @@ client.once('clientReady', async () => {
             if (!guild) return;
             const eventChannel = guild.channels.cache.get(eventChannelId);
             if (!eventChannel || !eventChannel.isTextBased()) return;
-            const existingDisplay = await DisplayMessage.findOne({ guildId });
+            const existingDisplay = await mongodbManager.executeWithRetry(async () => {
+                return await DisplayMessage.findOne({ guildId });
+            });
             let displayMessage = null;
             if (existingDisplay) {
                 try {
@@ -731,11 +777,13 @@ client.once('clientReady', async () => {
                 await displayMessage.edit({ embeds: [eventEmbed] });
             } else {
                 const sentMessage = await eventChannel.send({ embeds: [eventEmbed] });
-                await DisplayMessage.findOneAndUpdate(
-                    { guildId },
-                    { channelId: eventChannelId, messageId: sentMessage.id },
-                    { upsert: true, new: true }
-                );
+                await mongodbManager.executeWithRetry(async () => {
+                    await DisplayMessage.findOneAndUpdate(
+                        { guildId },
+                        { channelId: eventChannelId, messageId: sentMessage.id },
+                        { upsert: true, new: true }
+                    );
+                });
             }
         } catch (err) {
             console.error('[EventScheduleUpdater] Failed to update event schedule embed:', err);

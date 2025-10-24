@@ -84,28 +84,25 @@ class HealthCheckSystem {
      */
     async checkDatabaseConnection() {
         try {
-            const state = mongoose.connection.readyState;
-            const isConnected = state === 1;
+            const mongodbManager = require('./mongodb-manager');
+            const isHealthy = await mongodbManager.isHealthy();
+            const status = mongodbManager.getStatus();
             
-            if (isConnected) {
-                // Test a simple query
-                const startTime = Date.now();
-                await mongoose.connection.db.admin().ping();
-                const responseTime = Date.now() - startTime;
-                
+            if (isHealthy) {
                 return {
                     status: 'healthy',
-                    readyState: state,
-                    responseTime: responseTime,
-                    host: mongoose.connection.host,
-                    port: mongoose.connection.port,
-                    name: mongoose.connection.name
+                    readyState: status.readyState,
+                    host: status.host,
+                    port: status.port,
+                    name: status.name,
+                    reconnectAttempts: status.reconnectAttempts
                 };
             } else {
                 return {
                     status: 'unhealthy',
-                    readyState: state,
-                    error: 'Database not connected'
+                    readyState: status.readyState,
+                    error: 'Database not healthy',
+                    reconnectAttempts: status.reconnectAttempts
                 };
             }
         } catch (error) {

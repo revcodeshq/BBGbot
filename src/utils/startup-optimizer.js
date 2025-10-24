@@ -213,27 +213,24 @@ class StartupOptimizer {
     }
 
     /**
-     * Optimized MongoDB connection with connection pooling
+     * Optimized MongoDB connection with robust error handling
      * @param {string} mongoUri - MongoDB connection URI
-     * @returns {Promise<void>}
+     * @returns {Promise<boolean>} Connection success status
      */
     async connectMongoDB(mongoUri) {
-        const mongoose = require('mongoose');
+        const mongodbManager = require('./mongodb-manager');
         
-        // Optimize connection options
-        const options = {
-            maxPoolSize: 10, // Maintain up to 10 socket connections
-            serverSelectionTimeoutMS: 5000, // Keep trying to send operations for 5 seconds
-            socketTimeoutMS: 45000, // Close sockets after 45 seconds of inactivity
-            bufferCommands: false, // Disable mongoose buffering
-        };
-
         try {
-            await mongoose.connect(mongoUri, options);
-            console.log('[Startup] Connected to MongoDB with optimized settings');
+            const success = await mongodbManager.connect(mongoUri);
+            if (success) {
+                console.log('[Startup] MongoDB connection established with robust error handling');
+            } else {
+                console.warn('[Startup] MongoDB connection failed, will retry automatically');
+            }
+            return success;
         } catch (error) {
             console.error('[Startup] MongoDB connection error:', error);
-            throw error;
+            return false;
         }
     }
 

@@ -39,7 +39,7 @@ module.exports = {
         }
 
         if (subcommand === 'add') {
-            await interaction.deferReply({ flags: 64 });
+            // ...existing code...
             const user = interaction.options.getUser('user');
             const fid = interaction.options.getString('fid');
             const alliance = interaction.options.getString('alliance');
@@ -83,7 +83,7 @@ module.exports = {
             }
 
         } else if (subcommand === 'remove') {
-            await interaction.deferReply({ flags: 64 });
+            // ...existing code...
             const user = interaction.options.getUser('user');
 
             try {
@@ -99,7 +99,7 @@ module.exports = {
             }
 
         } else if (subcommand === 'list') {
-            await interaction.deferReply();
+            // ...existing code...
             try {
                 const leaders = await Leader.find().sort({ alliance: 1 });
                 if (leaders.length === 0) {

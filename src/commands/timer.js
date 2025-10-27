@@ -68,7 +68,7 @@ async function setTimer(user, guildId, channelId, timerName, durationString) {
 }
 
 async function handleSetTimer(interaction) {
-    await interaction.deferReply({ flags: 64 });
+    // ...existing code...
 
     const durationString = interaction.options.getString('duration');
     const name = interaction.options.getString('name');
@@ -79,7 +79,7 @@ async function handleSetTimer(interaction) {
 }
 
 async function handleListTimers(interaction) {
-    await interaction.deferReply({ flags: 64 });
+    // ...existing code...
 
     try {
         const userTimers = await Timer.find({ userId: interaction.user.id }).sort({ endTime: 'asc' });
@@ -111,7 +111,7 @@ ${timer.timerName}
 }
 
 async function handleClearTimer(interaction) {
-    await interaction.deferReply({ flags: 64 });
+    // ...existing code...
     const name = interaction.options.getString('name');
 
     try {

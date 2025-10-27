@@ -15,31 +15,33 @@ class InteractionHandler {
      * @param {Function} commandFunction - Command execution function
      * @param {Object} options - Execution options
      */
+
     static async executeCommand(interaction, commandFunction, options = {}) {
         const startTime = Date.now();
         const commandName = interaction.commandName;
         const userId = interaction.user.id;
-        
+
         // Debug logging
         const interactionAge = Date.now() - interaction.createdTimestamp;
         console.log(`[InteractionHandler] Processing ${commandName} - Age: ${interactionAge}ms, Expired: ${this.isInteractionExpired(interaction)}`);
-        
+
         try {
             // Check if interaction is still valid before deferring
             if (this.isInteractionExpired(interaction)) {
                 console.warn(`[InteractionHandler] Interaction expired for command: ${commandName} (Age: ${interactionAge}ms)`);
                 return;
             }
-            
+
             // Additional safety check - if interaction is very old, skip it
             if (interactionAge > 3 * 60 * 1000) { // 3 minutes
                 console.warn(`[InteractionHandler] Interaction too old for command: ${commandName} (Age: ${interactionAge}ms)`);
                 return;
             }
-            
-            // Defer reply immediately to prevent timeout
+
+            // Use ephemeral option if provided, default to false
+            const ephemeral = options.ephemeral === true;
             try {
-                await interaction.deferReply({ flags: 64 });
+                await interaction.deferReply({ ephemeral });
             } catch (deferError) {
                 if (deferError.code === 10062) {
                     console.warn(`[InteractionHandler] Interaction expired during defer for command: ${commandName}`);
@@ -47,16 +49,16 @@ class InteractionHandler {
                 }
                 throw deferError; // Re-throw other errors
             }
-            
+
             // Execute the command function
             const result = await commandFunction(interaction);
-            
+
             // Track successful execution
             const executionTime = Date.now() - startTime;
             metrics.trackCommand(commandName, userId, executionTime, true);
             performanceMonitor.trackResponseTime(commandName, executionTime);
             smartRateLimiter.recordSuccess(`${commandName}:${userId}`, executionTime);
-            
+
             return result;
             
         } catch (error) {

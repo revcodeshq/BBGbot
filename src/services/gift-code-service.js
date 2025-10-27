@@ -267,63 +267,80 @@ class GiftCodeRedemptionService {
     async processUserRedemption(user, code) {
         const { fid, discordId, nickname } = user;
         const resultItem = { fid, discordId, nickname };
+        const maxRetries = 4;
+        let attempt = 0;
+        let lastError = null;
+        while (attempt < maxRetries) {
+            try {
+                // Step 1: Check player
+                const playerCheck = await this.checkPlayerId(fid);
+                if (!playerCheck.success) {
+                    resultItem.status = 'FAILED';
+                    resultItem.msg = `Player Check Failed: ${playerCheck.msg}`;
+                    return resultItem;
+                }
 
-        try {
-            // Step 1: Check player
-            const playerCheck = await this.checkPlayerId(fid);
-            if (!playerCheck.success) {
-                resultItem.status = 'FAILED';
-                resultItem.msg = `Player Check Failed: ${playerCheck.msg}`;
-                return resultItem;
-            }
+                // Step 2: Get CAPTCHA
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                const captchaData = await this.getCaptchaImage(fid);
 
-            // Step 2: Get CAPTCHA
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            const captchaData = await this.getCaptchaImage(fid);
-            
-            // Step 3: Solve CAPTCHA
-            const solvedCaptcha = await this.solveCaptcha(captchaData.base64Data);
-            
-            // Step 4: Redeem code
-            await new Promise(resolve => setTimeout(resolve, 1500));
-            let result = await this.redeemGiftCode(fid, code, solvedCaptcha);
+                // Step 3: Solve CAPTCHA (with more retries and longer polling)
+                let solvedCaptcha = null;
+                let captchaSolveRetries = 0;
+                let captchaSolveError = null;
+                while (captchaSolveRetries < maxRetries && !solvedCaptcha) {
+                    try {
+                        solvedCaptcha = await this.solveCaptcha(captchaData.base64Data, 60); // 60s polling timeout
+                    } catch (err) {
+                        captchaSolveError = err;
+                        captchaSolveRetries++;
+                        await new Promise(resolve => setTimeout(resolve, 2000));
+                    }
+                }
+                if (!solvedCaptcha) {
+                    resultItem.status = 'FAILED';
+                    resultItem.msg = `CAPTCHA solving failed${captchaSolveError ? ': ' + captchaSolveError.message : ''}`;
+                    return resultItem;
+                }
 
-            // Handle CAPTCHA retry if needed
-            let captchaRetries = 0;
-            while (result && result.err_code === 40103 && captchaRetries < 2) {
-                console.log(`CAPTCHA retry ${captchaRetries + 1}/2 for FID ${fid}`);
-                await new Promise(resolve => setTimeout(resolve, 2000));
-                
-                const newCaptchaData = await this.getCaptchaImage(fid);
-                const newSolvedCaptcha = await this.solveCaptcha(newCaptchaData.base64Data);
+                // Step 4: Redeem code
                 await new Promise(resolve => setTimeout(resolve, 1500));
-                
-                result = await this.redeemGiftCode(fid, code, newSolvedCaptcha);
-                captchaRetries++;
+                const result = await this.redeemGiftCode(fid, code, solvedCaptcha);
+
+                // If CAPTCHA error, retry the whole process
+                if (result && result.err_code === 40103) {
+                    attempt++;
+                    lastError = 'CAPTCHA CHECK ERROR';
+                    console.log(`Full retry ${attempt}/${maxRetries} for FID ${fid}`);
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+                    continue;
+                }
+
+                // Determine result status
+                if (result.err_code === 40008) {
+                    resultItem.status = 'SKIPPED';
+                    resultItem.msg = 'Already Redeemed';
+                } else if (result.code === 0) {
+                    resultItem.status = 'SUCCESS';
+                    resultItem.msg = 'SUCCESS';
+                } else if (result.err_code === 40103) {
+                    resultItem.status = 'FAILED';
+                    resultItem.msg = 'CAPTCHA CHECK ERROR after retries';
+                } else {
+                    resultItem.status = 'FAILED';
+                    resultItem.msg = result.msg || JSON.stringify(result);
+                }
+                return resultItem;
+            } catch (error) {
+                lastError = error;
+                attempt++;
+                await new Promise(resolve => setTimeout(resolve, 2000));
             }
-
-            // Determine result status
-            if (result.err_code === 40008) {
-                resultItem.status = 'SKIPPED';
-                resultItem.msg = 'Already Redeemed';
-            } else if (result.code === 0) {
-                resultItem.status = 'SUCCESS';
-                resultItem.msg = 'SUCCESS';
-            } else if (result.err_code === 40103) {
-                resultItem.status = 'FAILED';
-                resultItem.msg = 'CAPTCHA CHECK ERROR after retries';
-            } else {
-                resultItem.status = 'FAILED';
-                resultItem.msg = result.msg || JSON.stringify(result);
-            }
-
-            return resultItem;
-
-        } catch (error) {
-            resultItem.status = 'FAILED';
-            resultItem.msg = error.message || 'Unknown error occurred';
-            return resultItem;
         }
+        // If all retries failed
+        resultItem.status = 'FAILED';
+        resultItem.msg = lastError?.message ? lastError.message : 'Unknown error occurred after full retries';
+        return resultItem;
     }
 
     /**
@@ -332,18 +349,27 @@ class GiftCodeRedemptionService {
      * @param {string} code - Gift code
      * @returns {Promise<Array>} Array of redemption results
      */
-    async processBatchRedemption(users, code) {
+    async processBatchRedemption(users, code, progressCallback) {
         // Use performance optimization for batch processing
+        let processed = 0;
         const results = await PerformanceOptimizer.processBatches(
             users,
             async (user) => {
                 // Add delay between users to prevent rate limiting
                 await new Promise(resolve => setTimeout(resolve, 3000));
-                return await this.processUserRedemption(user, code);
+                const result = await this.processUserRedemption(user, code);
+                processed++;
+                if (progressCallback && processed % 5 === 0) {
+                    progressCallback(processed, users.length);
+                }
+                return result;
             },
             1, // Process one at a time to avoid rate limits
             1  // No concurrency for API calls
         );
+
+        // Final progress update
+        if (progressCallback) progressCallback(users.length, users.length);
 
         return results.map(result => result.success ? result.result : result);
     }

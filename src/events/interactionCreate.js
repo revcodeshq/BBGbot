@@ -334,15 +334,27 @@ module.exports = {
   },
 
   async handleCommandInteraction(interaction, client) {
+    // Debug: print all loaded command names
+    console.log('[DEBUG] Loaded commands:', Array.from(client.commands.keys()));
+    console.log('[DEBUG] Received interaction for command:', interaction.commandName);
     const command = client.commands.get(interaction.commandName);
+    // Fix: define ephemeral safely
+    let ephemeral = false;
+    if (command?.data?.options) {
+      const opt = command.data.options.find?.(opt => opt.name === 'ephemeral');
+      if (opt && typeof opt.default !== 'undefined') ephemeral = opt.default;
+    }
     if (command) {
       try {
-        // Use InteractionHandler.executeCommand for consistent handling
-        await InteractionHandler.executeCommand(interaction, command.execute.bind(command));
+        // Debug logging for command dispatch
+        console.log('[DEBUG] handleCommandInteraction:', interaction.commandName, 'ephemeral:', ephemeral);
+        await InteractionHandler.executeCommand(interaction, command.execute.bind(command), { ephemeral });
       } catch (error) {
         // Error handling is already done in InteractionHandler.executeCommand
         console.error(`Command execution failed for ${interaction.commandName}:`, error.message);
       }
+    } else {
+      console.error('[DEBUG] Command not found in client.commands:', interaction.commandName);
     }
   }
 };

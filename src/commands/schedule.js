@@ -133,7 +133,7 @@ module.exports = {
             metrics.trackCommand('schedule', interaction.user.id, 0, true);
             
             // Defer reply
-            await interaction.deferReply({ ephemeral: true });
+            // ...existing code...
             
             // Initialize services
             const timezoneService = new TimezoneConversionService();

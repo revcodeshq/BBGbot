@@ -20,7 +20,7 @@ module.exports = {
         ),
 
     async execute(interaction) {
-        await interaction.deferReply({ flags: 64 });
+    // ...existing code...
 
         const creatorChannel = interaction.options.getChannel('creator_channel');
         const category = interaction.options.getChannel('category');

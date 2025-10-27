@@ -101,7 +101,7 @@ module.exports = {
 
     async execute(interaction) {
         // Defer reply immediately since the API call can take a moment
-        await interaction.deferReply();
+    // ...existing code...
 
         const question = interaction.options.getString('question');
 

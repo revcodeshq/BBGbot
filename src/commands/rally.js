@@ -93,7 +93,7 @@ async function createRally(channel, leader, title, spots, duration = 10, mention
 }
 
 async function handleRallyPing(interaction) {
-    await interaction.deferReply();
+    // ...existing code...
     const target = interaction.options.getString('target');
     const action = interaction.options.getString('action');
     const initialDuration = interaction.options.getInteger('duration') || 10;
@@ -164,7 +164,7 @@ async function handleRallyPing(interaction) {
 }
 
 async function handleRallyClear(interaction) {
-    await interaction.deferReply({ flags: 64 });
+    // ...existing code...
     try {
         const messages = await interaction.channel.messages.fetch({ limit: 100 });
         const messageToDelete = messages.find(m => 
@@ -219,7 +219,7 @@ module.exports = {
     async execute(interaction) {
         const subcommand = interaction.options.getSubcommand();
         if (subcommand === 'create') {
-            await interaction.deferReply({ flags: 64 });
+            // ...existing code...
             const title = interaction.options.getString('title');
             const spots = interaction.options.getInteger('spots');
             const duration = interaction.options.getInteger('duration');

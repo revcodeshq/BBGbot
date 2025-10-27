@@ -20,7 +20,7 @@ module.exports = {
       return;
     }
     // Always defer reply first
-    await interaction.deferReply({ flags: 64 });
+  // ...existing code...
     // Fetch player info from API
     const crypto = require('crypto');
     const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));

@@ -10,7 +10,7 @@ const { brandingText } = require('../utils/branding');
 
 module.exports = {
     data: new SlashCommandBuilder()
-        .setName('redeem_batch')
+    .setName('redeem')
         .setDescription('Redeem a gift code for ALL registered FIDs (using MongoDB data)')
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
         .addStringOption(option =>
@@ -23,7 +23,7 @@ module.exports = {
 
     async execute(interaction) {
         const startTime = Date.now();
-        
+        console.log('[DEBUG] redeem_batch execute called by', interaction.user?.tag, 'in guild', interaction.guild?.id);
         try {
             // Track command usage
             metrics.trackCommand('redeem_batch', interaction.user.id, 0, true);
@@ -38,8 +38,7 @@ module.exports = {
             const redemptionService = new GiftCodeRedemptionService();
             const initiatorTag = interaction.user.tag;
 
-            // Defer reply
-            await interaction.deferReply({ ephemeral: false });
+            // ...existing code...
             let statusMessage = `🎁 Starting batch redemption for code **${code}**...`;
             await interaction.editReply(statusMessage);
 
@@ -66,15 +65,56 @@ module.exports = {
                 nickname: user.nickname || 'Unknown Player'
             }));
 
-            // Process batch redemption
+            // Process batch redemption with live progress
             statusMessage += `\n🔄 Processing redemptions...`;
             await interaction.editReply(statusMessage);
 
-            const redemptionResults = await redemptionService.processBatchRedemption(usersToRedeem, code);
+            let progressEmbed = null;
+            let lastProgress = { success: 0, skipped: 0, failed: 0, processed: 0 };
+            const redemptionResults = [];
 
-            // Add initiator tag to results
-            redemptionResults.forEach(result => {
-                result.initiatorTag = initiatorTag;
+            // Progress callback for live updates
+            const progressCallback = async (processed, total) => {
+                // Count current results
+                const success = redemptionResults.filter(r => r.status === 'SUCCESS').length;
+                const skipped = redemptionResults.filter(r => r.status === 'SKIPPED').length;
+                const failed = redemptionResults.filter(r => r.status === 'FAILED').length;
+                // Only update if progress changed
+                if (processed !== lastProgress.processed) {
+                    lastProgress = { success, skipped, failed, processed };
+                    // Progress bar
+                    const percent = Math.round((processed / total) * 100);
+                    const barLen = 20;
+                    const filledLen = Math.round(barLen * percent / 100);
+                    const bar = '█'.repeat(filledLen) + '░'.repeat(barLen - filledLen);
+                    progressEmbed = new EmbedBuilder()
+                        .setTitle(`🎁 Batch Redemption Progress`)
+                        .setDescription(`Code: **${code}**\nProcessed: **${processed}/${total}**\nProgress: [${bar}] **${percent}%**`)
+                        .setColor(0x3498db)
+                        .addFields(
+                            { name: '✅ Success', value: `${success}`, inline: true },
+                            { name: '🟡 Skipped', value: `${skipped}`, inline: true },
+                            { name: '❌ Failed', value: `${failed}`, inline: true }
+                        )
+                        .setTimestamp();
+                    await interaction.editReply({ content: '⏳ Batch redemption in progress...', embeds: [progressEmbed] });
+                }
+            };
+
+            // Custom batch processor to collect results and update progress
+            const batchResults = await redemptionService.processBatchRedemption(
+                usersToRedeem,
+                code,
+                async (processed, total) => {
+                    // Only update every 5 users or on completion
+                    if (processed % 5 === 0 || processed === total) {
+                        await progressCallback(processed, total);
+                    }
+                }
+            );
+            batchResults.forEach(r => {
+                r.initiatorTag = initiatorTag;
+                redemptionResults.push(r);
             });
 
             // Track metrics

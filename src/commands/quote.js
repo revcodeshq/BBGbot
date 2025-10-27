@@ -92,18 +92,18 @@ module.exports = {
         const subcommand = interaction.options.getSubcommand();
 
         if (subcommand === 'add') {
-            await interaction.deferReply({ flags: 64 });
+            // ...existing code...
             const quotedUser = interaction.options.getUser('user');
             const text = interaction.options.getString('text');
             const embed = await addQuote(interaction.guild.id, interaction.user, quotedUser, text);
             await interaction.channel.send({ embeds: [embed] });
             await interaction.editReply({ content: 'Quote saved!' });
         } else if (subcommand === 'random') {
-            await interaction.deferReply();
+            // ...existing code...
             const result = await getRandomQuote(interaction.guild.id, interaction.client);
             await interaction.editReply(result);
         } else if (subcommand === 'list') {
-            await interaction.deferReply({ flags: 64 });
+            // ...existing code...
             const user = interaction.options.getUser('user');
             const result = await listQuotes(interaction.guild.id, user);
             await interaction.editReply(result);

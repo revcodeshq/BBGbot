@@ -31,7 +31,7 @@ module.exports = {
                 .setRequired(false)),
 
     async execute(interaction) {
-        await interaction.deferReply({ flags: 64 });
+    // ...existing code...
         const targetUser = interaction.options.getUser('user') || interaction.user;
 
         // Call the core function

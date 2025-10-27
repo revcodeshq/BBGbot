@@ -7,7 +7,7 @@ module.exports = {
     .setName('meme')
     .setDescription('Get a fun meme'),
   async execute(interaction) {
-    await interaction.deferReply();
+  // ...existing code...
 
     const getMeme = async () => {
       try {

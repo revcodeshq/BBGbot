@@ -8,6 +8,7 @@ const crypto = require('crypto');
 const { get } = require('../utils/config');
 const { apiCache } = require('../utils/cache');
 const PerformanceOptimizer = require('../utils/performance');
+const RedemptionHistory = require('../database/models.RedemptionHistory');
 const { APIError, ValidationError } = require('../utils/error-handler');
 const { metrics } = require('../utils/metrics');
 
@@ -267,6 +268,14 @@ class GiftCodeRedemptionService {
     async processUserRedemption(user, code) {
         const { fid, discordId, nickname } = user;
         const resultItem = { fid, discordId, nickname };
+        // Check DB for previous redemption
+        const alreadyRedeemed = await RedemptionHistory.findOne({ fid, code });
+        if (alreadyRedeemed) {
+            resultItem.status = 'SKIPPED';
+            resultItem.msg = 'Already Redeemed (DB)';
+            return resultItem;
+        }
+
         const maxRetries = 4;
         let attempt = 0;
         let lastError = null;
@@ -323,6 +332,8 @@ class GiftCodeRedemptionService {
                 } else if (result.code === 0) {
                     resultItem.status = 'SUCCESS';
                     resultItem.msg = 'SUCCESS';
+                    // Record successful redemption in DB
+                    await RedemptionHistory.create({ fid, code });
                 } else if (result.err_code === 40103) {
                     resultItem.status = 'FAILED';
                     resultItem.msg = 'CAPTCHA CHECK ERROR after retries';

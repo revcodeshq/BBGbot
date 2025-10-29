@@ -4,7 +4,7 @@
  */
 
 const fs = require('fs');
-const path = require('path');
+// const path = require('path'); // Not used
 
 console.log('🧪 BBG Discord Bot - Testing New Improvements\n');
 

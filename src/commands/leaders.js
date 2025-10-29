@@ -69,8 +69,8 @@ module.exports = {
                     {
                         discordId: user.id,
                         gameId: fid,
-                        inGameName: inGameName,
-                        alliance: alliance,
+                        inGameName,
+                        alliance,
                     },
                     { upsert: true, new: true }
                 );

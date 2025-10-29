@@ -5,7 +5,7 @@ const path = require('path');
 const { get } = require('../utils/config');
 const Timer = require('../database/models.Timer'); // <-- ADDED
 const HelpMessage = require('../database/models.HelpMessage');
-const { brandingText } = require('../utils/branding.js');
+const BotInfoMessage = require('../database/models/BotInfoMessage');
 const { getStaticHelpEmbed } = require('../utils/help.js');
 const { metrics } = require('../utils/metrics');
 const mongodbManager = require('../utils/mongodb-manager');
@@ -68,7 +68,6 @@ module.exports = {
 
         // --- Persistent Bot Info Message ---
         try {
-            const BotInfoMessage = require('../database/models/BotInfoMessage');
             const { generateBotInfoEmbed } = require('../utils/bot-info.js');
             
             // Wait for MongoDB connection before proceeding

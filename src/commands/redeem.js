@@ -2,7 +2,7 @@ const { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits } = require('disc
 const GiftCodeRedemptionService = require('../services/gift-code-service');
 const User = require('../database/models.User');
 const { validateGiftCode, sanitizeInput } = require('../utils/validators');
-const { ValidationError, APIError } = require('../utils/error-handler');
+const { ValidationError } = require('../utils/error-handler');
 const { ErrorHandler } = require('../utils/error-handler');
 const { metrics } = require('../utils/metrics');
 const logger = require('../utils/logger');
@@ -59,63 +59,70 @@ module.exports = {
             await interaction.editReply(statusMessage);
 
             // Format users for processing
-            const usersToRedeem = users.map(user => ({
+            const usersToRedeemRaw = users.map(user => ({
                 fid: user.gameId,
                 discordId: user.discordId,
                 nickname: user.nickname || 'Unknown Player'
             }));
 
-            // Process batch redemption with live progress
+            // Pre-filter users who already redeemed this code
+            const { filterAlreadyRedeemed } = require('../database/filterAlreadyRedeemed');
+            const usersToRedeem = await filterAlreadyRedeemed(usersToRedeemRaw, code);
+
             statusMessage += `\n🔄 Processing redemptions...`;
+            statusMessage += `\n⏩ Skipping ${usersToRedeemRaw.length - usersToRedeem.length} users who already redeemed.`;
             await interaction.editReply(statusMessage);
 
             let progressEmbed = null;
-            let lastProgress = { success: 0, skipped: 0, failed: 0, processed: 0 };
             const redemptionResults = [];
 
-            // Progress callback for live updates
-            const progressCallback = async (processed, total) => {
-                // Count current results
-                const success = redemptionResults.filter(r => r.status === 'SUCCESS').length;
-                const skipped = redemptionResults.filter(r => r.status === 'SKIPPED').length;
-                const failed = redemptionResults.filter(r => r.status === 'FAILED').length;
-                // Only update if progress changed
-                if (processed !== lastProgress.processed) {
-                    lastProgress = { success, skipped, failed, processed };
+            // Custom batch processor to collect results and update progress in real time
+            const startTime = Date.now();
+            await redemptionService.processBatchRedemption(
+                usersToRedeem,
+                code,
+                async (processed, total, result) => {
+                    // Add result as soon as it's processed
+                    if (result) {
+                        result.initiatorTag = initiatorTag;
+                        redemptionResults.push(result);
+                    }
+                    
+                    // Update progress more frequently (every user now)
+                    const elapsed = Date.now() - startTime;
+                    const avgTimePerUser = processed > 0 ? elapsed / processed : 0;
+                    const remaining = total - processed;
+                    const eta = remaining * avgTimePerUser;
+                    
+                    const success = redemptionResults.filter(r => r.status === 'SUCCESS').length;
+                    const skipped = redemptionResults.filter(r => r.status === 'SKIPPED').length;
+                    const failed = redemptionResults.filter(r => r.status === 'FAILED').length;
+                    
                     // Progress bar
                     const percent = Math.round((processed / total) * 100);
                     const barLen = 20;
                     const filledLen = Math.round(barLen * percent / 100);
                     const bar = '█'.repeat(filledLen) + '░'.repeat(barLen - filledLen);
+                    
+                    const etaText = eta > 0 ? ` | ETA: ${Math.round(eta / 1000)}s` : '';
+                    
                     progressEmbed = new EmbedBuilder()
                         .setTitle(`🎁 Batch Redemption Progress`)
-                        .setDescription(`Code: **${code}**\nProcessed: **${processed}/${total}**\nProgress: [${bar}] **${percent}%**`)
-                        .setColor(0x3498db)
+                        .setDescription(`Code: **${code}**\nProcessed: **${processed}/${total}** (${percent}%)\nProgress: [${bar}]${etaText}`)
+                        .setColor(percent < 30 ? 0xff6b6b : percent < 70 ? 0xffa726 : 0x66bb6a)
                         .addFields(
                             { name: '✅ Success', value: `${success}`, inline: true },
                             { name: '🟡 Skipped', value: `${skipped}`, inline: true },
                             { name: '❌ Failed', value: `${failed}`, inline: true }
                         )
                         .setTimestamp();
-                    await interaction.editReply({ content: '⏳ Batch redemption in progress...', embeds: [progressEmbed] });
-                }
-            };
-
-            // Custom batch processor to collect results and update progress
-            const batchResults = await redemptionService.processBatchRedemption(
-                usersToRedeem,
-                code,
-                async (processed, total) => {
-                    // Only update every 5 users or on completion
-                    if (processed % 5 === 0 || processed === total) {
-                        await progressCallback(processed, total);
-                    }
+                    
+                    await interaction.editReply({ 
+                        content: `⏳ Batch redemption in progress... (${percent}% complete)`, 
+                        embeds: [progressEmbed] 
+                    });
                 }
             );
-            batchResults.forEach(r => {
-                r.initiatorTag = initiatorTag;
-                redemptionResults.push(r);
-            });
 
             // Track metrics
             const successCount = redemptionResults.filter(r => r.status === 'SUCCESS').length;
@@ -218,9 +225,45 @@ module.exports = {
             .setFooter({ text: `Batch run initiated by ${results[0]?.initiatorTag || 'Bot'} | ${brandingText}` });
 
         if (failed.length > 0) {
+            // Categorize failures for better reporting
+            const rateLimitErrors = failed.filter(r => 
+                r.msg.includes('CAPTCHA CHECK TOO FREQUENT') || 
+                r.msg.includes('CAPTCHA CHECK ERROR') ||
+                r.apiError?.err_code === 40103
+            );
+            const authErrors = failed.filter(r => 
+                r.msg.includes('NOT LOGIN') || 
+                r.msg.includes('CAPTCHA generation failed') ||
+                r.apiError?.err_code === 40001
+            );
+            const otherErrors = failed.filter(r => 
+                !rateLimitErrors.includes(r) && !authErrors.includes(r)
+            );
+
+            let failureText = '';
+            if (rateLimitErrors.length > 0) {
+                failureText += `**Rate Limited (${rateLimitErrors.length}):**\n`;
+                failureText += rateLimitErrors.slice(0, 5).map(r => 
+                    `• **${r.nickname}**: CAPTCHA rate limit`
+                ).join('\n') + '\n\n';
+            }
+            if (authErrors.length > 0) {
+                failureText += `**Auth/Login Issues (${authErrors.length}):**\n`;
+                failureText += authErrors.slice(0, 5).map(r => 
+                    `• **${r.nickname}**: Authentication failed`
+                ).join('\n') + '\n\n';
+            }
+            if (otherErrors.length > 0) {
+                failureText += `**Other Errors (${otherErrors.length}):**\n`;
+                failureText += otherErrors.slice(0, 5).map(r => {
+                    const msg = `• **${r.nickname}**: ${r.msg.replace('FAILED: ', '')}`;
+                    return msg;
+                }).join('\n');
+            }
+
             embed.addFields({
                 name: `❌ Failures (${failed.length})`,
-                value: failed.map(r => `• **${r.nickname}**: ${r.msg.replace('FAILED: ', '')}`).join('\n').substring(0, 1024),
+                value: failureText.substring(0, 1024),
                 inline: false,
             });
         }

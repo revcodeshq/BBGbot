@@ -101,7 +101,7 @@ class BackgroundTaskScheduler {
         const dueTasks = [];
 
         // Find due tasks
-        for (const [name, task] of this.tasks.entries()) {
+        for (const [, task] of this.tasks.entries()) {
             if (task.enabled && task.nextRun <= now) {
                 dueTasks.push(task);
             }
@@ -192,7 +192,7 @@ class BackgroundTaskScheduler {
      * @param {Object} task - Task that failed
      * @param {Error} error - Error that occurred
      */
-    async handleTaskRetry(task, error) {
+    async handleTaskRetry(task, _error) {
         const retryCount = task.retryCount || 0;
         
         if (retryCount < task.maxRetries) {

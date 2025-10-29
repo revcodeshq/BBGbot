@@ -73,7 +73,7 @@ module.exports = {
                     guildId: interaction.guild.id,
                     channelId: channel.id,
                     messageId: infoMessage.id,
-                        infoType: infoType,
+                        infoType,
                         createdAt: new Date(),
                         updatedAt: new Date()
                 },

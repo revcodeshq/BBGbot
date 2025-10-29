@@ -2,8 +2,6 @@ const { SlashCommandBuilder, PermissionsBitField, EmbedBuilder, ActionRowBuilder
 const HelpMessage = require('../database/models.HelpMessage');
 const { getStaticHelpEmbed } = require('../utils/help');
 const InteractionHandler = require('../utils/interaction-handler');
-const { performanceMonitor } = require('../utils/performance-monitor');
-const { advancedCache } = require('../utils/advanced-cache');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -74,7 +72,7 @@ module.exports = {
                         guildId: interaction.guild.id,
                         channelId: channel.id,
                         messageId: helpMessage.id,
-                        helpType: helpType,
+                        helpType,
                         createdAt: new Date(),
                         updatedAt: new Date()
                     },
@@ -102,9 +100,6 @@ module.exports = {
                     .setFooter({ text: 'BBG Bot Setup' });
 
                 await interaction.editReply({ embeds: [successEmbed] });
-
-                // Track performance
-                performanceMonitor.trackResponseTime('setuphelp', Date.now() - interaction.createdTimestamp);
 
             } catch (error) {
                 console.error('Error setting up help message:', error);
@@ -177,7 +172,7 @@ module.exports = {
         return embed;
     },
 
-    async createQuickReferenceEmbed(client) {
+    async createQuickReferenceEmbed(_client) {
         const embed = new EmbedBuilder()
             .setColor(0x00ff00)
             .setTitle('📋 Quick Command Reference')

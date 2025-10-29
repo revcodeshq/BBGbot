@@ -44,7 +44,7 @@ class DiscordOptimizer {
             try {
                 const fetchedMembers = await guild.members.fetch({ 
                     user: uncachedIds, 
-                    force: force 
+                    force 
                 });
                 
                 // Cache results
@@ -62,7 +62,7 @@ class DiscordOptimizer {
                 // Fallback to individual fetches
                 for (const userId of uncachedIds) {
                     try {
-                        const member = await guild.members.fetch({ user: userId, force: force });
+                        const member = await guild.members.fetch({ user: userId, force });
                         const cacheKey = `${guild.id}_${userId}`;
                         this.memberCache.set(cacheKey, {
                             member,

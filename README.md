@@ -171,6 +171,8 @@ docker-compose exec bbg-bot npm run health-check
 - `/verify <game_id>` - Verify your account with game integration
 - `/playerinfo <game_id>` - Get player statistics and information
 - `/avatar [user]` - Display user's avatar
+- `/feedback [type]` - Submit feedback about the bot (bug reports, feature requests, general feedback)
+- `/changelog [version]` - View recent updates and improvements to the bot
 - `/quote add/get/random` - Manage memorable quotes
 - `/timer create/list/delete` - Manage countdown timers
 

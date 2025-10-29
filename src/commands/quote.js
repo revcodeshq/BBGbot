@@ -5,8 +5,8 @@ const { brandingText } = require('../utils/branding.js');
 async function addQuote(guildId, author, quotedUser, text) {
     try {
         await Quote.create({
-            guildId: guildId,
-            text: text,
+            guildId,
+            text,
             quotedUserId: quotedUser.id,
             authorId: author.id,
         });
@@ -25,7 +25,7 @@ async function addQuote(guildId, author, quotedUser, text) {
 async function getRandomQuote(guildId, client) {
     try {
         const randomQuote = await Quote.aggregate([
-            { $match: { guildId: guildId } },
+            { $match: { guildId } },
             { $sample: { size: 1 } }
         ]);
         if (randomQuote.length === 0) {
@@ -48,9 +48,9 @@ async function getRandomQuote(guildId, client) {
 
 async function listQuotes(guildId, user) {
     try {
-        const userQuotes = await Quote.find({ guildId: guildId, quotedUserId: user.id }).sort({ createdAt: 'desc' });
+        const userQuotes = await Quote.find({ guildId, quotedUserId: user.id }).sort({ createdAt: 'desc' });
         if (userQuotes.length === 0) {
-            return { content: `${user.tag} doesn\'t have any quotes saved yet.` };
+            return { content: `${user.tag} doesn't have any quotes saved yet.` };
         }
         const description = userQuotes.map((quote, index) => {
             const date = new Date(quote.createdAt).toLocaleDateString();

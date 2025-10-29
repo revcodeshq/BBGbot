@@ -7,8 +7,8 @@
  */
 
 const { Client, Collection, GatewayIntentBits } = require('discord.js');
-const mongoose = require('mongoose');
-const fs = require('fs');
+// const mongoose = require('mongoose'); // Not used directly, handled by mongodbManager
+// const fs = require('fs'); // Not used
 const path = require('path');
 const crypto = require('crypto');
 const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
@@ -21,13 +21,13 @@ const HealthCheckSystem = require('./src/utils/health-check');
 const { brandingText } = require('./src/utils/branding.js');
 const { getFurnaceLevelName } = require('./src/utils/game-utils.js');
 const { validateConfig, get } = require('./src/utils/config');
-const { ErrorHandler } = require('./src/utils/error-handler');
+// const { ErrorHandler } = require('./src/utils/error-handler');
 const { metrics } = require('./src/utils/metrics');
 const { startupOptimizer } = require('./src/utils/startup-optimizer');
 const { discordOptimizer } = require('./src/utils/discord-optimizer');
-const { performanceMonitor } = require('./src/utils/performance-monitor');
-const { advancedCache } = require('./src/utils/advanced-cache');
-const { smartRateLimiter } = require('./src/utils/smart-rate-limiter');
+// const { performanceMonitor } = require('./src/utils/performance-monitor');
+// const { advancedCache } = require('./src/utils/advanced-cache');
+// const { smartRateLimiter } = require('./src/utils/smart-rate-limiter');
 
 require('dotenv').config();
 
@@ -78,7 +78,7 @@ startupOptimizer.connectMongoDB(get('database.mongoUri'))
     });
 
 // Monitor MongoDB connection state
-mongodbManager.addConnectionListener((event, data) => {
+mongodbManager.addConnectionListener((event, _data) => {
     if (event === 'connected' || event === 'reconnected') {
         mongoConnected = true;
         console.log('[MongoDB] Connection state updated: connected');
@@ -344,7 +344,7 @@ async function checkSchedules(client) {
                 if (channel && channel.isTextBased()) {
                     let logAction = '';
                     // The role mention is extracted here to be used in the 'content' field for the ping.
-                    let roleMention = ann.roleId ? `<@&${ann.roleId}>` : '';
+                    const roleMention = ann.roleId ? `<@&${ann.roleId}>` : '';
                     let sendEmbed;
 
                     // --- Embed Construction ---
@@ -462,12 +462,6 @@ async function runNicknameSync(client) {
 		return await User.find({ verified: true });
 	});
 	
-	// Use optimized batch processing for nickname sync
-	const nicknameUpdates = users.map(user => ({
-		userId: user.discordId,
-		nickname: null // Will be set below
-	}));
-
 	// Batch fetch all members first
 	const memberMap = await discordOptimizer.batchFetchMembers(guild, users.map(u => u.discordId), false);
 	

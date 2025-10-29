@@ -119,7 +119,7 @@ module.exports = {
                         }
                     }
                     break;
-                case 'avatar':
+                case 'avatar': {
                     let targetUser;
                     if (result.options.user && result.options.user !== 'self') {
                         const userId = result.options.user.replace(/[<@!>]/g, '');
@@ -133,6 +133,7 @@ module.exports = {
                         message.reply("I couldn't find that user.");
                     }
                     break;
+                }
                 default:
                     break;
             }

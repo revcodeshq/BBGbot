@@ -46,17 +46,17 @@ async function setTimer(user, guildId, channelId, timerName, durationString) {
     const endTime = new Date(Date.now() + durationMs);
 
     try {
-        const existingTimer = await Timer.findOne({ userId: user.id, timerName: timerName });
+        const existingTimer = await Timer.findOne({ userId: user.id, timerName });
         if (existingTimer) {
             return { success: false, message: `❌ You already have a timer with the name **${timerName}**. Please choose a different name or clear the existing one.` };
         }
 
         await Timer.create({
             userId: user.id,
-            guildId: guildId,
-            channelId: channelId,
-            endTime: endTime,
-            timerName: timerName,
+            guildId,
+            channelId,
+            endTime,
+            timerName,
         });
 
         return { success: true, message: `✅ **Timer Set!**\nI will send you a DM when your timer for **"${timerName}"** is complete.\n\n**Ends:** <t:${Math.floor(endTime.getTime() / 1000)}:R>` };

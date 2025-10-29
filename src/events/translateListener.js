@@ -1,4 +1,3 @@
-const { Events } = require('discord.js');
 // Assuming 'fetch' is available globally in your Node.js environment (v18+) or handled by Discord.js's dependencies.
 
 // --- Gemini API Configuration ---
@@ -35,7 +34,7 @@ async function getTranslation(text) {
     }`;
 
     const payload = {
-        contents: [{ parts: [{ text: text }] }],
+        contents: [{ parts: [{ text }] }],
         systemInstruction: { parts: [{ text: systemPrompt }] },
         generationConfig: {
             responseMimeType: "application/json",
@@ -95,7 +94,7 @@ async function getTranslation(text) {
                     };
                     
                     return { 
-                        isTranslationNeeded: isTranslationNeeded,
+                        isTranslationNeeded,
                         originalLang: parsedJson.originalLanguage, 
                         translations 
                     };
@@ -128,7 +127,7 @@ module.exports = {
     name: 'messageCreate', 
     once: false, 
     
-    async execute(message, client) {
+    async execute(message, _client) {
         
         // **CRITICAL DEBUG LOG: If you see this, the event listener is definitely running.**
         console.log(`[Translate Listener DEBUG] Event fired in #${message.channel.name} by ${message.author.tag}`);

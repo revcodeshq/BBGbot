@@ -7,7 +7,6 @@ const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fet
 // --- Gemini API Configuration ---
 const API_KEY = process.env.GEMINI_API_KEY || ""; 
 const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${API_KEY}`;
-const MODEL_NAME = 'gemini-2.5-pro'; // Model optimized for quick, grounded Q&A
 
 /**
  * Calls the Gemini API to provide a comprehensive answer using Google Search grounding.

@@ -90,14 +90,12 @@ module.exports = {
     },
 
     async createDetailedHealthEmbed(client) {
-        const { EmbedBuilder } = require('discord.js');
         
         // Initialize health check system if not already done
         if (!client.healthCheck) {
             client.healthCheck = new HealthCheckSystem(client);
         }
         
-        const healthStatus = client.healthCheck.getHealthStatus();
         const embed = client.healthCheck.createHealthEmbed();
         
         // Add additional detailed information

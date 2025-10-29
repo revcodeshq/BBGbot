@@ -6,11 +6,12 @@ const announcementSchema = new mongoose.Schema({
     channelId: { type: String, required: true },
     content: { type: String, required: true },
     time: { type: String, required: true },
-    // FIX: Added 'ONCE' to the enum array to allow for one-time announcements.
+    startDate: { type: String, required: false, default: null }, // YYYY-MM-DD format
+    // FIX: Added new interval types for granular scheduling
     interval: { 
         type: String, 
         required: true, 
-        enum: ['ONCE', 'DAILY', 'WEEKLY', 'CUSTOM_DAYS', 'CUSTOM_WEEKS'] 
+        enum: ['ONCE', 'DAILY', 'DAILY_2', 'DAILY_3', 'DAILY_4', 'WEEKLY', 'WEEKLY_2', 'WEEKLY_3', 'WEEKLY_4', 'CUSTOM_DAYS', 'CUSTOM_WEEKS'] 
     },
     // Set optional fields to default to null for consistency
     dayOfWeek: { type: Number, required: false, default: null }, // 0=Sun, 6=Sat

@@ -1,17 +1,23 @@
-/**
- * Schedule UI Service
- * Handles UI generation for schedule-related embeds and components
- */
-
-const {
-    EmbedBuilder,
-    ActionRowBuilder,
-    ButtonBuilder,
-    ButtonStyle
-} = require('discord.js');
+const { ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require('discord.js');
 const { brandingText } = require('../utils/branding');
 
 class ScheduleUIService {
+    createMainMenuButtons() {
+        return new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+                .setCustomId('schedule_create')
+                .setLabel('Create Schedule')
+                .setStyle(ButtonStyle.Success),
+            new ButtonBuilder()
+                .setCustomId('schedule_list')
+                .setLabel('List Schedules')
+                .setStyle(ButtonStyle.Primary),
+            new ButtonBuilder()
+                .setCustomId('schedule_delete')
+                .setLabel('Delete Schedule')
+                .setStyle(ButtonStyle.Danger)
+        );
+    }
     constructor() {
         this.colors = {
             SUCCESS: '#00ff00',
@@ -21,13 +27,191 @@ class ScheduleUIService {
         };
     }
 
-    /**
-     * Creates confirmation embed for new announcements
-     * @param {Object} announcementData - Announcement data
-     * @param {Object} channel - Discord channel
-     * @param {Object} role - Optional role to mention
-     * @returns {EmbedBuilder} Confirmation embed
-     */
+    createChannelSelect(options) {
+        // Ensure all options have string values and valid labels
+        const safeOptions = options
+            .filter(opt => typeof opt.label === 'string' && typeof opt.value !== 'undefined')
+            .map(opt => ({
+                label: String(opt.label),
+                value: String(opt.value),
+                description: opt.description ? String(opt.description) : undefined
+            }));
+        return new ActionRowBuilder().addComponents(
+            new StringSelectMenuBuilder()
+                .setCustomId('schedule_channel')
+                .setPlaceholder('Select a channel')
+                .addOptions(safeOptions)
+        );
+    }
+
+    createMessagePrompt() {
+        return new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+                .setCustomId('schedule_message_prompt')
+                .setLabel('Enter message')
+                .setStyle(ButtonStyle.Primary)
+        );
+    }
+
+    createTimeSelect() {
+        // Create hour options from 0 to 23
+        const hourOptions = [];
+        for (let hour = 0; hour < 24; hour++) {
+            const hour12 = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+            const ampm = hour < 12 ? 'AM' : 'PM';
+            const label = `${hour.toString().padStart(2, '0')}:00 (${hour12}:00 ${ampm})`;
+            hourOptions.push({
+                label,
+                value: `${hour.toString().padStart(2, '0')}:00`
+            });
+        }
+        
+        return new ActionRowBuilder().addComponents(
+            new StringSelectMenuBuilder()
+                .setCustomId('schedule_hour')
+                .setPlaceholder('Select hour (24-hour format)')
+                .addOptions(hourOptions)
+        );
+    }
+
+    createFrequencySelect() {
+        const frequencyOptions = [
+            { label: 'Just once', value: 'once' }
+        ];
+        
+        // Add daily options (1d, 2d, 3d, 4d)
+        for (let days = 1; days <= 4; days++) {
+            frequencyOptions.push({
+                label: `Every ${days} day${days > 1 ? 's' : ''}`,
+                value: `every_${days}d`
+            });
+        }
+        
+        // Add weekly options (1w, 2w, 3w, 4w)
+        for (let weeks = 1; weeks <= 4; weeks++) {
+            frequencyOptions.push({
+                label: `Every ${weeks} week${weeks > 1 ? 's' : ''}`,
+                value: `every_${weeks}w`
+            });
+        }
+        
+        return new ActionRowBuilder().addComponents(
+            new StringSelectMenuBuilder()
+                .setCustomId('schedule_frequency')
+                .setPlaceholder('Select frequency')
+                .addOptions(frequencyOptions)
+        );
+    }
+
+    createStartDateSelect() {
+        const now = new Date();
+        // Use UTC to avoid timezone issues
+        const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())); // Start of today in UTC
+        console.log('[DEBUG] Creating start date select. Today (UTC):', today.toISOString());
+        
+        const options = [
+            {
+                label: `Today (${new Date(today.getTime()).toLocaleDateString()})`,
+                value: 'today'
+            },
+            {
+                label: `Tomorrow (${new Date(today.getTime() + 24 * 60 * 60 * 1000).toLocaleDateString()})`,
+                value: 'tomorrow'
+            }
+        ];
+        
+        // Add options for next 5 days
+        for (let days = 2; days <= 6; days++) {
+            const futureDate = new Date(today.getTime() + days * 24 * 60 * 60 * 1000);
+            options.push({
+                label: `In ${days} days (${futureDate.toLocaleDateString()})`,
+                value: `in_${days}_days`
+            });
+            console.log(`[DEBUG] Added option: In ${days} days (${futureDate.toLocaleDateString()})`);
+        }
+        
+        // Add next week
+        const nextWeek = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
+        options.push({
+            label: `Next week (${nextWeek.toLocaleDateString()})`,
+            value: 'next_week'
+        });
+        
+        console.log('[DEBUG] Start date options created:', options.map(o => ({ label: o.label, value: o.value })));
+        
+        return new ActionRowBuilder().addComponents(
+            new StringSelectMenuBuilder()
+                .setCustomId('schedule_start_date')
+                .setPlaceholder('Select when to start the schedule')
+                .addOptions(options)
+        );
+    }
+
+    createIntervalButtons() {
+        return new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId('interval_once').setLabel('Once').setStyle(ButtonStyle.Secondary),
+            new ButtonBuilder().setCustomId('interval_daily').setLabel('Daily').setStyle(ButtonStyle.Secondary),
+            new ButtonBuilder().setCustomId('interval_weekly').setLabel('Weekly').setStyle(ButtonStyle.Secondary),
+            new ButtonBuilder().setCustomId('interval_custom').setLabel('Custom').setStyle(ButtonStyle.Secondary)
+        );
+    }
+
+    createRoleSelect(roles) {
+        return new ActionRowBuilder().addComponents(
+            new StringSelectMenuBuilder()
+                .setCustomId('schedule_role')
+                .setPlaceholder('Select a role to mention (optional)')
+                .addOptions(roles)
+        );
+    }
+
+    createPreviewEmbed(data) {
+        const intervalDisplay = this.formatIntervalForDisplay(data.interval);
+        let startDateDisplay = 'Today';
+        
+        if (data.startDate) {
+            // Parse the date correctly - data.startDate is in YYYY-MM-DD format
+            const [year, month, day] = data.startDate.split('-').map(Number);
+            // Create date at noon UTC to match the calculation logic
+            const startDate = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
+            startDateDisplay = startDate.toLocaleDateString();
+        }
+        
+        return new EmbedBuilder()
+            .setTitle('Preview Announcement')
+            .setDescription(data.content)
+            .addFields(
+                { name: 'Channel', value: `<#${data.channelId}>`, inline: true },
+                { name: 'Time', value: data.time + ' UTC', inline: true },
+                { name: 'Frequency', value: intervalDisplay, inline: true },
+                { name: 'Start Date', value: startDateDisplay, inline: true },
+                { name: 'Role', value: data.roleId ? `<@&${data.roleId}>` : 'None', inline: true }
+            );
+    }
+
+    formatIntervalForDisplay(interval) {
+        const displayMap = {
+            'ONCE': 'Just once',
+            'DAILY': 'Every day',
+            'DAILY_2': 'Every 2 days',
+            'DAILY_3': 'Every 3 days',
+            'DAILY_4': 'Every 4 days',
+            'WEEKLY': 'Every week',
+            'WEEKLY_2': 'Every 2 weeks',
+            'WEEKLY_3': 'Every 3 weeks',
+            'WEEKLY_4': 'Every 4 weeks'
+        };
+        return displayMap[interval] || interval;
+    }
+
+    createConfirmButtons() {
+        return new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId('schedule_confirm').setLabel('Confirm').setStyle(ButtonStyle.Success),
+            new ButtonBuilder().setCustomId('schedule_cancel').setLabel('Cancel').setStyle(ButtonStyle.Danger)
+        );
+    }
+
+    // ...existing code for confirmation, list, error, etc. embeds and buttons...
     createConfirmationEmbed(announcementData, channel, role = null) {
         const embed = new EmbedBuilder()
             .setColor(this.colors.INFO)
@@ -80,10 +264,6 @@ class ScheduleUIService {
         return embed;
     }
 
-    /**
-     * Creates confirmation buttons
-     * @returns {ActionRowBuilder} Button row
-     */
     createConfirmationButtons() {
         return new ActionRowBuilder()
             .addComponents(
@@ -98,12 +278,6 @@ class ScheduleUIService {
             );
     }
 
-    /**
-     * Creates announcement list embeds
-     * @param {Array} announcements - Array of announcements with metadata
-     * @param {Object} guild - Discord guild
-     * @returns {Array<EmbedBuilder>} Array of embeds
-     */
     createAnnouncementListEmbeds(announcements, guild) {
         if (announcements.length === 0) {
             return [this.createEmptyListEmbed()];
@@ -124,13 +298,6 @@ class ScheduleUIService {
         return embeds;
     }
 
-    /**
-     * Creates a single announcement list embed
-     * @param {Array} announcements - Chunk of announcements
-     * @param {Object} guild - Discord guild
-     * @param {boolean} isFirst - Whether this is the first embed
-     * @returns {EmbedBuilder} List embed
-     */
     createAnnouncementListEmbed(announcements, guild, isFirst = false) {
         const embed = new EmbedBuilder()
             .setColor(this.colors.INFO)
@@ -141,9 +308,10 @@ class ScheduleUIService {
         announcements.forEach((ann, index) => {
             const channel = guild.channels.cache.get(ann.channelId);
             const channelName = channel ? `#${channel.name}` : 'Unknown Channel';
+            const intervalDisplay = this.formatIntervalForDisplay(ann.interval);
             
             embed.addFields({
-                name: `${index + 1}. ${ann.interval} at ${ann.time} UTC`,
+                name: `${index + 1}. ${intervalDisplay} at ${ann.time} UTC`,
                 value: `**Channel:** ${channelName}\n**Next Run:** ${ann.nextRunString}\n**Message:** ${ann.content.substring(0, 100)}${ann.content.length > 100 ? '...' : ''}`,
                 inline: false
             });
@@ -152,10 +320,6 @@ class ScheduleUIService {
         return embed;
     }
 
-    /**
-     * Creates empty list embed
-     * @returns {EmbedBuilder} Empty list embed
-     */
     createEmptyListEmbed() {
         return new EmbedBuilder()
             .setColor(this.colors.WARNING)
@@ -165,11 +329,6 @@ class ScheduleUIService {
             .setFooter({ text: brandingText });
     }
 
-    /**
-     * Creates success embed
-     * @param {string} message - Success message
-     * @returns {EmbedBuilder} Success embed
-     */
     createSuccessEmbed(message) {
         return new EmbedBuilder()
             .setColor(this.colors.SUCCESS)
@@ -179,11 +338,6 @@ class ScheduleUIService {
             .setFooter({ text: brandingText });
     }
 
-    /**
-     * Creates error embed
-     * @param {string} message - Error message
-     * @returns {EmbedBuilder} Error embed
-     */
     createErrorEmbed(message) {
         return new EmbedBuilder()
             .setColor(this.colors.ERROR)
@@ -193,13 +347,6 @@ class ScheduleUIService {
             .setFooter({ text: brandingText });
     }
 
-    /**
-     * Creates timezone conversion result embed
-     * @param {string} localTime - Local time
-     * @param {string} timezone - Timezone
-     * @param {string} utcTime - UTC time result
-     * @returns {EmbedBuilder} Conversion result embed
-     */
     createTimezoneConversionEmbed(localTime, timezone, utcTime) {
         return new EmbedBuilder()
             .setColor(this.colors.SUCCESS)
@@ -221,11 +368,6 @@ class ScheduleUIService {
             .setFooter({ text: brandingText });
     }
 
-    /**
-     * Creates management buttons for announcements
-     * @param {string} announcementId - Announcement ID
-     * @returns {ActionRowBuilder} Button row
-     */
     createManagementButtons(announcementId) {
         return new ActionRowBuilder()
             .addComponents(

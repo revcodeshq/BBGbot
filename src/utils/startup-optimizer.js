@@ -43,7 +43,7 @@ class StartupOptimizer {
         const results = await Promise.allSettled(loadPromises);
         const loadedModules = new Map();
 
-        results.forEach((result, index) => {
+        results.forEach((result, _index) => {
             if (result.status === 'fulfilled' && result.value.success) {
                 loadedModules.set(result.value.name, result.value.module);
             }

@@ -9,6 +9,8 @@ module.exports = {
   name: 'interactionCreate',
   async execute(interaction, client) {
     try {
+      console.log('[DEBUG] Interaction received:', interaction.type, interaction.customId, interaction.isStringSelectMenu());
+      
       // Check if interaction is still valid before processing
       if (InteractionHandler.isInteractionExpired(interaction)) {
         console.warn(`[InteractionCreate] Interaction expired: ${interaction.type}`);
@@ -30,6 +32,8 @@ module.exports = {
 
       if (interaction.isButton()) {
         await this.handleButtonInteraction(interaction);
+      } else if (interaction.isStringSelectMenu()) {
+        await this.handleStringSelectInteraction(interaction);
       } else if (interaction.isModalSubmit()) {
         await this.handleModalInteraction(interaction);
       } else if (interaction.isChatInputCommand()) {
@@ -62,6 +66,126 @@ module.exports = {
   },
 
   async handleButtonInteraction(interaction) {
+    // Schedule main menu and wizard buttons
+    const ScheduleUIService = require('../services/schedule-ui-service');
+    const AnnouncementService = require('../services/announcement-service');
+    const uiService = new ScheduleUIService();
+    // Use a simple in-memory state for demo (replace with DB/cache for production)
+    global.scheduleWizardState = global.scheduleWizardState || {};
+    const userId = interaction.user.id;
+    const state = global.scheduleWizardState[userId] || {};
+
+    if (interaction.customId === 'schedule_create') {
+      // Start the schedule creation wizard (step 1: channel select)
+      const channelOptions = interaction.guild.channels.cache
+        .filter(ch => ch.isTextBased() && ch.type === 0 && typeof ch.name === 'string' && ch.name.length > 0 && ch.id)
+        .map(ch => ({ label: String(ch.name), value: String(ch.id) }));
+      // Initialize state with guildId
+      state.guildId = interaction.guild.id;
+      global.scheduleWizardState[userId] = state;
+      await interaction.reply({
+        content: 'Step 1: Choose the channel for your announcement.',
+        components: [uiService.createChannelSelect(channelOptions)],
+        ephemeral: true
+      });
+      return;
+    }
+    if (interaction.customId === 'schedule_list') {
+      // List all scheduled announcements
+      const announcementService = new AnnouncementService();
+      const announcements = await announcementService.getAnnouncementsWithMetadata(interaction.guild.id);
+      const embeds = uiService.createAnnouncementListEmbeds(announcements, interaction.guild);
+      await interaction.reply({
+        content: '📅 Scheduled Announcements:',
+        embeds: embeds.slice(0, 10),
+        ephemeral: true
+      });
+      return;
+    }
+    if (interaction.customId === 'schedule_delete') {
+      // Show a select menu of all schedules for deletion
+      const announcementService = new AnnouncementService();
+      const announcements = await announcementService.getAnnouncementsWithMetadata(interaction.guild.id);
+      if (!announcements.length) {
+        await interaction.reply({
+          content: 'There are no scheduled announcements to delete.',
+          ephemeral: true
+        });
+        return;
+      }
+      const options = announcements.map(a => ({
+        label: String(a.content.substring(0, 80) + (a.content.length > 80 ? '...' : '')),
+        value: String(a._id),
+        description: String(`Channel: #${interaction.guild.channels.cache.get(a.channelId)?.name || 'unknown'} | Time: ${a.time} UTC`).substring(0, 90)
+      }));
+      const { ActionRowBuilder, StringSelectMenuBuilder } = require('discord.js');
+      const selectMenu = new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder()
+          .setCustomId('schedule_delete_select')
+          .setPlaceholder('Select a schedule to delete')
+          .addOptions(options)
+      );
+      await interaction.reply({
+        content: 'Select a schedule to delete:',
+        components: [selectMenu],
+        ephemeral: true
+      });
+      return;
+    }
+    // Handle actual deletion when select menu is used
+    if (interaction.isStringSelectMenu() && interaction.customId === 'schedule_delete_select') {
+      const announcementService = new AnnouncementService();
+      const id = interaction.values[0];
+      await announcementService.deleteAnnouncement(id);
+      await interaction.reply({
+        content: `✅ Schedule deleted (ID: ${id})`,
+        ephemeral: true
+      });
+      return;
+    }
+    if (interaction.customId === 'schedule_message_prompt') {
+      // Show a modal for message input
+      const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require('discord.js');
+      const modal = new ModalBuilder()
+        .setCustomId('schedule_message_modal')
+        .setTitle('Announcement Message');
+      const messageInput = new TextInputBuilder()
+        .setCustomId('schedule_message_input')
+        .setLabel('Enter your announcement message')
+        .setStyle(TextInputStyle.Paragraph)
+        .setRequired(true)
+        .setMaxLength(1900);
+      modal.addComponents(new ActionRowBuilder().addComponents(messageInput));
+      await interaction.showModal(modal);
+      return;
+    }
+    if (interaction.customId === 'schedule_confirm') {
+      // Save announcement
+      state.authorId = interaction.user.id; // Add authorId
+      const announcementService = new AnnouncementService();
+      const announcement = await announcementService.createAnnouncement(state);
+      await interaction.update({ content: `✅ Announcement scheduled! ID: ${announcement._id}`, embeds: [], components: [] });
+      delete global.scheduleWizardState[userId];
+      return;
+    }
+    if (interaction.customId === 'schedule_cancel') {
+      await interaction.update({ content: '❌ Schedule cancelled.', embeds: [], components: [] });
+      delete global.scheduleWizardState[userId];
+      return;
+    }
+    // Schedule wizard message input
+    if (interaction.isMessageComponent() && global.scheduleWizardState?.[interaction.user.id]?.awaitingMessage) {
+      // Assume message is in interaction.message.content for demo
+      const state = global.scheduleWizardState[interaction.user.id];
+      state.content = interaction.message.content;
+      state.awaitingMessage = false;
+      global.scheduleWizardState[interaction.user.id] = state;
+      // Next: Time select
+      const ScheduleUIService = require('../services/schedule-ui-service');
+      const uiService = new ScheduleUIService();
+      await interaction.reply({ content: 'Step 3: Select time.', components: [uiService.createTimeSelect()], ephemeral: true });
+      return;
+    }
     const { customId } = interaction;
 
     if (customId === 'start_verification') {
@@ -80,16 +204,152 @@ module.exports = {
       await this.handleHelpButton(interaction);
     } else if (customId.startsWith('botinfo_')) {
       await this.handleBotInfoButton(interaction);
+    } else if (customId.startsWith('changelog_')) {
+      const ChangelogCommand = require('../commands/changelog');
+      await ChangelogCommand.handleChangelogButton(interaction);
+    }
+  },
+
+  async handleStringSelectInteraction(interaction) {
+    console.log('[DEBUG] String select menu interaction detected:', interaction.customId, interaction.values);
+    const ScheduleUIService = require('../services/schedule-ui-service');
+    const AnnouncementService = require('../services/announcement-service');
+    const uiService = new ScheduleUIService();
+    global.scheduleWizardState = global.scheduleWizardState || {};
+    const userId = interaction.user.id;
+    const state = global.scheduleWizardState[userId] || {};
+
+    if (interaction.customId === 'schedule_channel') {
+      console.log('[DEBUG] Handling schedule_channel selection:', interaction.values[0]);
+      state.channelId = interaction.values[0];
+      state.guildId = interaction.guild.id; // Add guildId
+      global.scheduleWizardState[userId] = state;
+      // Next: Message prompt
+      await interaction.update({ content: 'Step 2: Click to enter your announcement message.', components: [uiService.createMessagePrompt()] });
+      return;
+    }
+    if (interaction.customId === 'schedule_hour') {
+      console.log('[DEBUG] Handling schedule_hour selection:', interaction.values[0]);
+      state.time = interaction.values[0];
+      global.scheduleWizardState[userId] = state;
+      // Next: Frequency select
+      await interaction.update({ content: 'Step 4: Select how often to repeat this announcement.', components: [uiService.createFrequencySelect()] });
+      return;
+    }
+    if (interaction.customId === 'schedule_frequency') {
+      console.log('[DEBUG] Handling schedule_frequency selection:', interaction.values[0]);
+      const frequency = interaction.values[0];
+      if (frequency === 'once') {
+        state.interval = 'ONCE';
+      } else if (frequency.startsWith('every_')) {
+        const match = frequency.match(/every_(\d+)([dw])/);
+        if (match) {
+          const num = parseInt(match[1]);
+          const unit = match[2];
+          if (unit === 'd') {
+            state.interval = `DAILY_${num}`;
+          } else if (unit === 'w') {
+            state.interval = `WEEKLY_${num}`;
+          }
+        }
+      }
+      global.scheduleWizardState[userId] = state;
+      // Next: Start date select
+      await interaction.update({ content: 'Step 5: Select when to start this schedule.', components: [uiService.createStartDateSelect()] });
+      return;
+    }
+    if (interaction.customId === 'schedule_start_date') {
+      console.log('[DEBUG] Handling schedule_start_date selection:', interaction.values[0]);
+      console.log('[DEBUG] Current state before start date:', JSON.stringify(state, null, 2));
+      const startDateValue = interaction.values[0];
+      const now = new Date();
+      // Use UTC to avoid timezone issues
+      const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())); // Start of today in UTC
+      
+      let startDate;
+      switch (startDateValue) {
+        case 'today': {
+          startDate = today;
+          break;
+        }
+        case 'tomorrow': {
+          startDate = new Date(today.getTime() + 24 * 60 * 60 * 1000);
+          break;
+        }
+        case 'next_week': {
+          startDate = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
+          break;
+        }
+        default: {
+          // Handle in_X_days format
+          const match = startDateValue.match(/^in_(\d+)_days$/);
+          if (match) {
+            const days = parseInt(match[1]);
+            startDate = new Date(today.getTime() + days * 24 * 60 * 60 * 1000);
+            console.log(`[DEBUG] Calculated start date for in_${days}_days:`, startDate.toISOString());
+          } else {
+            startDate = today; // fallback
+          }
+          break;
+        }
+      }
+      
+      state.startDate = startDate.toISOString().split('T')[0]; // Store as YYYY-MM-DD
+      console.log('[DEBUG] Stored startDate:', state.startDate);
+      global.scheduleWizardState[userId] = state;
+      // Next: Role select
+      const roles = interaction.guild.roles.cache.map(role => ({ label: role.name, value: role.id }));
+      await interaction.update({ content: 'Step 6: Select a role to mention (optional).', components: [uiService.createRoleSelect(roles)] });
+      return;
+    }
+    if (interaction.customId === 'schedule_role') {
+      state.roleId = interaction.values[0];
+      global.scheduleWizardState[userId] = state;
+      // Preview and confirm
+      await interaction.update({
+        content: 'Step 7: Preview and confirm.',
+        embeds: [uiService.createPreviewEmbed(state)],
+        components: [uiService.createConfirmButtons()]
+      });
+      return;
+    }
+    if (interaction.customId === 'schedule_delete_select') {
+      const announcementService = new AnnouncementService();
+      const id = interaction.values[0];
+      await announcementService.deleteAnnouncement(id);
+      await interaction.update({
+        content: `✅ Schedule deleted (ID: ${id})`,
+        embeds: [],
+        components: []
+      });
+      return;
     }
   },
 
   async handleModalInteraction(interaction) {
+    // Handle schedule message modal
+    if (interaction.customId === 'schedule_message_modal') {
+      global.scheduleWizardState = global.scheduleWizardState || {};
+      const userId = interaction.user.id;
+      const state = global.scheduleWizardState[userId] || {};
+      const message = interaction.fields.getTextInputValue('schedule_message_input');
+      state.content = message;
+      global.scheduleWizardState[userId] = state;
+      // Next: Hour select
+      const ScheduleUIService = require('../services/schedule-ui-service');
+      const uiService = new ScheduleUIService();
+      await interaction.reply({ content: 'Step 3: Select the hour for your announcement (24-hour format).', components: [uiService.createTimeSelect()], ephemeral: true });
+      return;
+    }
     const { customId } = interaction;
 
     if (customId === 'verify_modal') {
       await VerificationHandler.handleVerificationModal(interaction);
     } else if (customId === 'reminder_modal') {
       await ReminderHandler.handleReminderModal(interaction);
+    } else if (customId.startsWith('feedback_modal_')) {
+      const FeedbackCommand = require('../commands/feedback');
+      await FeedbackCommand.handleFeedbackSubmission(interaction);
     }
   },
 
@@ -348,7 +608,7 @@ module.exports = {
       try {
         // Debug logging for command dispatch
         console.log('[DEBUG] handleCommandInteraction:', interaction.commandName, 'ephemeral:', ephemeral);
-        await InteractionHandler.executeCommand(interaction, command.execute.bind(command), { ephemeral });
+        await InteractionHandler.executeCommand(interaction, command, { ephemeral });
       } catch (error) {
         // Error handling is already done in InteractionHandler.executeCommand
         console.error(`Command execution failed for ${interaction.commandName}:`, error.message);

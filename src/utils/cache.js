@@ -116,20 +116,6 @@ class CacheManager {
     }
 
     /**
-     * Checks if a key exists and is not expired
-     * @param {string} key - Cache key
-     * @returns {boolean} True if key exists and is valid
-     */
-    has(key) {
-        const expiry = this.ttl.get(key);
-        if (!expiry || Date.now() > expiry) {
-            this.delete(key);
-            return false;
-        }
-        return this.cache.has(key);
-    }
-
-    /**
      * Gets enhanced cache statistics
      * @returns {Object} Cache statistics
      */
@@ -140,13 +126,13 @@ class CacheManager {
         let minAccessTime = Infinity;
         let maxAccessTime = 0;
         
-        for (const [key, expiry] of this.ttl.entries()) {
+        for (const [, expiry] of this.ttl.entries()) {
             if (now > expiry) {
                 expired++;
             }
         }
 
-        for (const [key, accessTime] of this.accessTimes.entries()) {
+        for (const [, accessTime] of this.accessTimes.entries()) {
             totalAccessTime += accessTime;
             minAccessTime = Math.min(minAccessTime, accessTime);
             maxAccessTime = Math.max(maxAccessTime, accessTime);

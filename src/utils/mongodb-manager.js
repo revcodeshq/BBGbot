@@ -269,7 +269,7 @@ class MongoDBManager {
      * @param {string} operationName - Name of the operation for metrics
      * @returns {Promise<any>} Operation result
      */
-    async executeWithRetry(operation, maxRetries = 3, operationName = 'unknown') {
+    async executeWithRetry(operation, maxRetries = 3, _operationName = 'unknown') {
         const startTime = Date.now();
         let lastError;
         

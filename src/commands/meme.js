@@ -53,7 +53,7 @@ module.exports = {
       }
     });
 
-    collector.on('end', collected => {
+    collector.on('end', _collected => {
         // Remove the buttons after the collector expires
         const lastPayload = message.embeds[0];
         if(lastPayload){

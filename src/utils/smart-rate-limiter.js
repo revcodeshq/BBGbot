@@ -15,8 +15,7 @@ class SmartRateLimiter {
             maxRequests: 100,
             burstMultiplier: 1.5, // Allow 50% burst
             adaptiveWindow: 300000, // 5 minutes for adaptation
-            minRequests: 10,
-            maxRequests: 1000
+            minRequests: 10
         };
         
         this.startAdaptiveAdjustment();
@@ -274,7 +273,7 @@ class SmartRateLimiter {
             adaptiveConfigs: this.adaptiveConfig.size
         };
         
-        for (const [key, limiter] of this.limiters.entries()) {
+        for (const [, limiter] of this.limiters.entries()) {
             if (limiter.requests.length > 0) {
                 stats.activeLimiters++;
                 stats.totalRequests += limiter.requests.length;

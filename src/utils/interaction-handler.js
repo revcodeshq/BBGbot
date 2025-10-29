@@ -16,7 +16,7 @@ class InteractionHandler {
      * @param {Object} options - Execution options
      */
 
-    static async executeCommand(interaction, commandFunction, options = {}) {
+    static async executeCommand(interaction, command, options = {}) {
         const startTime = Date.now();
         const commandName = interaction.commandName;
         const userId = interaction.user.id;
@@ -38,20 +38,25 @@ class InteractionHandler {
                 return;
             }
 
-            // Use ephemeral option if provided, default to false
-            const ephemeral = options.ephemeral === true;
-            try {
-                await interaction.deferReply({ ephemeral });
-            } catch (deferError) {
-                if (deferError.code === 10062) {
-                    console.warn(`[InteractionHandler] Interaction expired during defer for command: ${commandName}`);
-                    return;
+            // Check if command should not be deferred (e.g., for modal commands)
+            const shouldDefer = !command.noDefer;
+
+            if (shouldDefer) {
+                // Use ephemeral option if provided, default to false
+                const ephemeral = options.ephemeral === true;
+                try {
+                    await interaction.deferReply({ ephemeral });
+                } catch (deferError) {
+                    if (deferError.code === 10062) {
+                        console.warn(`[InteractionHandler] Interaction expired during defer for command: ${commandName}`);
+                        return;
+                    }
+                    throw deferError; // Re-throw other errors
                 }
-                throw deferError; // Re-throw other errors
             }
 
             // Execute the command function
-            const result = await commandFunction(interaction);
+            const result = await command.execute(interaction);
 
             // Track successful execution
             const executionTime = Date.now() - startTime;
@@ -84,6 +89,11 @@ class InteractionHandler {
                     if (interaction.deferred && !interaction.replied) {
                         await interaction.editReply({
                             content: errorResponse.userMessage
+                        });
+                    } else if (!interaction.replied && !interaction.deferred) {
+                        await interaction.reply({
+                            content: errorResponse.userMessage,
+                            flags: 64
                         });
                     }
                 }

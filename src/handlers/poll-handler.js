@@ -14,7 +14,7 @@ class PollHandler {
     static async handlePollVote(interaction) {
         await interaction.deferUpdate();
         
-        const [_, pollInteractionId, optionIndexStr] = interaction.customId.split('_');
+        const [, , optionIndexStr] = interaction.customId.split('_');
         const optionIndex = parseInt(optionIndexStr);
 
         const poll = await Poll.findOne({ messageId: interaction.message.id });

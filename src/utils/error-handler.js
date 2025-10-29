@@ -276,7 +276,7 @@ const RecoveryStrategies = {
      * @param {DatabaseError} error - Database error
      * @returns {Promise} Recovery action
      */
-    async handleDatabaseConnection(error) {
+    async handleDatabaseConnection(_error) {
         console.log('[Recovery] Database connection issue, attempting reconnection');
         // In a real implementation, you'd attempt to reconnect to database
         await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds

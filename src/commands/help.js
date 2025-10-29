@@ -1,8 +1,6 @@
 const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } = require('discord.js');
 const { getCommands } = require('../utils/help');
 const InteractionHandler = require('../utils/interaction-handler');
-const { performanceMonitor } = require('../utils/performance-monitor');
-const { advancedCache } = require('../utils/advanced-cache');
 
 // Command categories for better organization
 const COMMAND_CATEGORIES = {
@@ -147,7 +145,6 @@ module.exports = {
 
     async showMainHelp(interaction) {
         const commands = getCommands().filter(c => c.name !== 'help');
-        const totalPages = Math.ceil(commands.length / COMMANDS_PER_PAGE);
         let currentPage = 0;
         let currentCategory = 'all';
 
@@ -210,7 +207,7 @@ module.exports = {
             return embed;
         };
 
-        const generateComponents = (page, category = 'all') => {
+        const generateComponents = (page) => {
             const components = [];
             
             // Category selector
@@ -257,7 +254,7 @@ module.exports = {
         };
 
         const initialEmbed = generateEmbed(currentPage, currentCategory);
-        const initialComponents = generateComponents(currentPage, currentCategory);
+        const initialComponents = generateComponents(currentPage);
 
         const message = await interaction.editReply({
             embeds: [initialEmbed],
@@ -296,7 +293,7 @@ module.exports = {
                 }
 
                 const newEmbed = generateEmbed(currentPage, currentCategory);
-                const newComponents = generateComponents(currentPage, currentCategory);
+                const newComponents = generateComponents(currentPage);
 
                 await i.update({
                     embeds: [newEmbed],
@@ -309,7 +306,7 @@ module.exports = {
 
         collector.on('end', async () => {
             try {
-                const finalComponents = generateComponents(currentPage, currentCategory);
+                const finalComponents = generateComponents(currentPage);
                 finalComponents.forEach(row => {
                     row.components.forEach(component => {
                         if (component.setDisabled) component.setDisabled(true);

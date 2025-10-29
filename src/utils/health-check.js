@@ -4,7 +4,6 @@
  */
 
 const { EmbedBuilder } = require('discord.js');
-const mongoose = require('mongoose');
 
 class HealthCheckSystem {
     constructor(client) {
@@ -66,8 +65,8 @@ class HealthCheckSystem {
             
             return {
                 status: readyState === 0 ? 'healthy' : 'unhealthy',
-                ping: ping,
-                readyState: readyState,
+                ping,
+                readyState,
                 guilds: this.client.guilds.cache.size,
                 users: this.client.users.cache.size
             };
@@ -133,7 +132,7 @@ class HealthCheckSystem {
         }
         
         return {
-            status: status,
+            status,
             heapUsed: Math.round(usedMemory / 1024 / 1024), // MB
             heapTotal: Math.round(totalMemory / 1024 / 1024), // MB
             external: Math.round(externalMemory / 1024 / 1024), // MB
@@ -155,7 +154,7 @@ class HealthCheckSystem {
         }
         
         return {
-            status: status,
+            status,
             seconds: Math.floor(uptime),
             formatted: `${uptimeHours}h ${uptimeMinutes}m`,
             startTime: new Date(Date.now() - uptime * 1000)
@@ -178,7 +177,7 @@ class HealthCheckSystem {
         }
         
         return {
-            status: status,
+            status,
             loaded: commandCount,
             expected: expectedCommands,
             missing: expectedCommands - commandCount
@@ -203,7 +202,7 @@ class HealthCheckSystem {
         }
         
         return {
-            status: status,
+            status,
             loaded: eventCount,
             expected: expectedEvents,
             missing: expectedEvents - eventCount,
@@ -230,8 +229,8 @@ class HealthCheckSystem {
         }
         
         return {
-            status: status,
-            responseTime: responseTime,
+            status,
+            responseTime,
             ready: isReady
         };
     }

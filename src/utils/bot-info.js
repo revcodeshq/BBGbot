@@ -3,7 +3,6 @@ const Leader = require('../database/models.Leader.js');
 const Quote = require('../database/models.Quote.js');
 const Announcement = require('../database/models.Announcements.js');
 const { brandingText } = require('./branding.js');
-const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
 
 
 // Main function to generate the embed

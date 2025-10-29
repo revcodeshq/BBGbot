@@ -41,7 +41,7 @@ function getStaticHelpEmbed() {
                 }
             }
         }
-        embed.addFields({ name: `\`/${command.name}\``, value: value, inline: false });
+        embed.addFields({ name: `\`/${command.name}\``, value, inline: false });
     }
     return embed;
 }

@@ -108,7 +108,7 @@ class PerformanceOptimizer {
         
         for (let i = 0; i < batches.length; i += concurrency) {
             const concurrentBatches = batches.slice(i, i + concurrency);
-            const batchPromises = concurrentBatches.map(async (batch, batchIndex) => {
+            const batchPromises = concurrentBatches.map(async (batch, _batchIndex) => {
                 const batchResults = [];
                 for (const item of batch) {
                     try {

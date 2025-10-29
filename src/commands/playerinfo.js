@@ -1,10 +1,7 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const User = require('../database/models.User');
 const PlayerInfoService = require('../services/player-info-service');
-const { validateFID, sanitizeInput } = require('../utils/validators');
 const { ValidationError, APIError } = require('../utils/error-handler');
-const { ErrorHandler } = require('../utils/error-handler');
-const { metrics } = require('../utils/metrics');
 const { brandingText } = require('../utils/branding');
 const InteractionHandler = require('../utils/interaction-handler');
 

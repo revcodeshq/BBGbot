@@ -12,9 +12,13 @@ class AnnouncementService {
         this.intervals = {
             ONCE: 'One-time',
             DAILY: 'Daily',
+            DAILY_2: 'Every 2 days',
+            DAILY_3: 'Every 3 days',
+            DAILY_4: 'Every 4 days',
             WEEKLY: 'Weekly',
-            CUSTOM_DAYS: 'Custom Days',
-            CUSTOM_WEEKS: 'Custom Weeks'
+            WEEKLY_2: 'Every 2 weeks',
+            WEEKLY_3: 'Every 3 weeks',
+            WEEKLY_4: 'Every 4 weeks'
         };
     }
 
@@ -239,36 +243,64 @@ class AnnouncementService {
                 return null;
             }
             
-            const nextRun = new Date(now);
+            // Use startDate if provided, otherwise use today
+            let baseDate = new Date(now);
+            if (ann.startDate) {
+                // Parse startDate as UTC date since it's stored as YYYY-MM-DD
+                const [year, month, day] = ann.startDate.split('-').map(Number);
+                const startDate = new Date(Date.UTC(year, month - 1, day)); // Create UTC date at start of day
+                // If startDate is in the past, use today as base
+                baseDate = startDate > now ? startDate : new Date(now);
+            }
+            
+            const nextRun = new Date(baseDate);
             nextRun.setUTCHours(targetHour, targetMinute, 0, 0);
 
-            switch (ann.interval) {
-                case 'ONCE':
-                    return nextRun < now ? null : nextRun;
+            // If the calculated time is before now and we're using today's date, move to next occurrence
+            if (nextRun < now && !ann.startDate) {
+                // For recurring schedules, find next occurrence
+                switch (ann.interval) {
+                    case 'ONCE':
+                        return null; // One-time in past, don't schedule
                     
-                case 'DAILY':
-                    if (nextRun < now) {
+                    case 'DAILY':
                         nextRun.setUTCDate(nextRun.getUTCDate() + 1);
-                    }
-                    return nextRun;
-                    
-                case 'WEEKLY':
-                    const targetDay = ann.dayOfWeek;
-                    const nowDay = now.getUTCDay();
-                    let dayDifference = targetDay - nowDay;
-
-                    if (dayDifference < 0) {
-                        dayDifference += 7;
-                    } else if (dayDifference === 0 && nextRun < now) {
-                        dayDifference = 7;
-                    }
-                    
-                    nextRun.setUTCDate(nextRun.getUTCDate() + dayDifference);
-                    return nextRun;
-                    
-                default:
-                    return null; // Custom intervals are harder to predict
+                        break;
+                        
+                    case 'DAILY_2':
+                        nextRun.setUTCDate(nextRun.getUTCDate() + 2);
+                        break;
+                        
+                    case 'DAILY_3':
+                        nextRun.setUTCDate(nextRun.getUTCDate() + 3);
+                        break;
+                        
+                    case 'DAILY_4':
+                        nextRun.setUTCDate(nextRun.getUTCDate() + 4);
+                        break;
+                        
+                    case 'WEEKLY':
+                        nextRun.setUTCDate(nextRun.getUTCDate() + 7);
+                        break;
+                        
+                    case 'WEEKLY_2':
+                        nextRun.setUTCDate(nextRun.getUTCDate() + 14);
+                        break;
+                        
+                    case 'WEEKLY_3':
+                        nextRun.setUTCDate(nextRun.getUTCDate() + 21);
+                        break;
+                        
+                    case 'WEEKLY_4':
+                        nextRun.setUTCDate(nextRun.getUTCDate() + 28);
+                        break;
+                        
+                    default:
+                        return null; // Unknown interval
+                }
             }
+            
+            return nextRun;
         } catch (error) {
             console.error(`[AnnouncementService] Error calculating next run date:`, error);
             console.error(`[AnnouncementService] Announcement:`, ann);

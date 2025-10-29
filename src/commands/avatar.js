@@ -1,5 +1,4 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
-const { brandingText } = require('../utils/branding.js');
 
 /**
  * Creates and sends an embed for a user's avatar.

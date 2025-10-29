@@ -4,7 +4,6 @@
  */
 
 const { EmbedBuilder } = require('discord.js');
-const { get } = require('./config');
 
 class MetricsCollector {
     constructor() {
@@ -122,6 +121,52 @@ class MetricsCollector {
         } else {
             apiMetric.errorCount++;
         }
+    }
+
+    /**
+     * Tracks user feedback submission
+     * @param {string} type - Feedback type (bug, feature, general, question, performance)
+     * @param {string} userId - User ID who submitted feedback
+     * @param {string} guildId - Guild ID where feedback was submitted
+     */
+    trackFeedback(type, userId, guildId) {
+        // Initialize feedback tracking if not exists
+        if (!this.metrics.feedback) {
+            this.metrics.feedback = {
+                total: 0,
+                types: new Map(),
+                users: new Set(),
+                guilds: new Set(),
+                timeline: []
+            };
+        }
+
+        // Update counters
+        this.metrics.feedback.total++;
+        this.metrics.feedback.users.add(userId);
+        if (guildId) {
+            this.metrics.feedback.guilds.add(guildId);
+        }
+
+        // Update type counters
+        if (!this.metrics.feedback.types.has(type)) {
+            this.metrics.feedback.types.set(type, 0);
+        }
+        this.metrics.feedback.types.set(type, this.metrics.feedback.types.get(type) + 1);
+
+        // Add to timeline (keep last 100 entries)
+        this.metrics.feedback.timeline.push({
+            type,
+            userId,
+            guildId,
+            timestamp: Date.now()
+        });
+
+        if (this.metrics.feedback.timeline.length > 100) {
+            this.metrics.feedback.timeline.shift();
+        }
+
+        console.log(`[Feedback] ${type} feedback received from user ${userId}`);
     }
 
     /**

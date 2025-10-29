@@ -128,7 +128,7 @@ class AdvancedCacheManager {
      */
     moveToTier(key, entry, targetTier) {
         // Remove from current tier
-        for (const [tier, cache] of Object.entries(this.caches)) {
+        for (const [, cache] of Object.entries(this.caches)) {
             if (cache.has(key)) {
                 cache.delete(key);
                 break;
@@ -312,7 +312,7 @@ class AdvancedCacheManager {
     warmCache() {
         // Find keys that are frequently accessed but not in cache
         const frequentKeys = Array.from(this.accessPatterns.entries())
-            .filter(([key, pattern]) => pattern.accessCount > 3 && pattern.missCount > 0)
+            .filter(([, pattern]) => pattern.accessCount > 3 && pattern.missCount > 0)
             .sort((a, b) => b[1].accessCount - a[1].accessCount)
             .slice(0, 10); // Top 10 frequent keys
 
@@ -348,7 +348,7 @@ class AdvancedCacheManager {
         }
 
         // Calculate hit rate
-        for (const [key, pattern] of this.accessPatterns.entries()) {
+        for (const [, pattern] of this.accessPatterns.entries()) {
             totalAccess += pattern.accessCount;
             totalMisses += pattern.missCount;
         }
@@ -380,7 +380,7 @@ class AdvancedCacheManager {
      * Cleans up expired entries
      */
     cleanup() {
-        for (const [tier, cache] of Object.entries(this.caches)) {
+        for (const [, cache] of Object.entries(this.caches)) {
             for (const [key, entry] of cache.entries()) {
                 if (!this.isValid(entry)) {
                     cache.delete(key);

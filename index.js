@@ -598,6 +598,8 @@ async function runNicknameSync(client) {
 
 // --- Bot Ready Event ---
 client.once('clientReady', async () => {
+    const { get } = require('./src/utils/config');
+    
 	// Wait for MongoDB connection before starting background tasks
 	if (!mongoConnected) {
 		console.log('[Startup] Waiting for MongoDB connection...');
@@ -639,7 +641,6 @@ client.once('clientReady', async () => {
     const Announcement = require('./src/database/models.Announcements');
     const DisplayMessage = require('./src/database/models.DisplayMessage');
     const { EmbedBuilder } = require('discord.js');
-    const { get } = require('./src/utils/config');
     const getIntervalDisplayName = (ann) => {
         switch (ann.interval) {
             case 'ONCE': return 'One-Time';

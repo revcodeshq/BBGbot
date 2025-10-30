@@ -16,7 +16,6 @@ class GiftCodeRedemptionService {
         this.secret = get('api.wosApiSecret');
         this.apiBaseUrl = 'https://wos-giftcode-api.centurygame.com/api';
         this.webBaseUrl = 'https://wos-giftcode-api.centurygame.com';
-        this.twoCaptchaApiKey = get('api.twoCaptchaApiKey');
         this.cookieJar = new Map();
         this.setupAxiosInstance();
     }
@@ -193,7 +192,7 @@ class GiftCodeRedemptionService {
     }
 
     /**
-     * Solves CAPTCHA using 2Captcha service
+     * Solves CAPTCHA using CapMonster service
      * @param {string} base64Data - CAPTCHA image data
      * @returns {Promise<string>} Solved CAPTCHA text
      */

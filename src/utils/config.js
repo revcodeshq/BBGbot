@@ -39,7 +39,7 @@ const config = {
     api: {
         geminiApiKey: process.env.GEMINI_API_KEY || "",
         wosApiSecret: process.env.WOS_API_SECRET,
-        twoCaptchaApiKey: process.env.TWO_CAPTCHA_API_KEY,
+        capMonsterApiKey: process.env.CAPMONSTER_API_KEY,
     },
 
     // Feature Flags
@@ -58,6 +58,8 @@ const config = {
         nicknameSyncInterval: parseInt(process.env.NICKNAME_SYNC_INTERVAL) || 600000,
         announcementCheckInterval: parseInt(process.env.ANNOUNCEMENT_CHECK_INTERVAL) || 60000,
         botInfoUpdateInterval: parseInt(process.env.BOT_INFO_UPDATE_INTERVAL) || 300000,
+        schedulerInterval: parseInt(process.env.SCHEDULER_INTERVAL) || 10000,
+        eventUpdateInterval: parseInt(process.env.EVENT_UPDATE_INTERVAL) || 300000,
     },
 
     // Development Settings

@@ -55,34 +55,39 @@ Before setting up the bot, ensure you have:
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/yourusername/bbg-discord-bot.git
-   cd bbg-discord-bot
+   git clone https://github.com/revcodeshq/BBGbot.git
+   cd BBGbot
    ```
 
-2. **Install dependencies**
+2. **Clean up development files** (optional - removes dev dependencies and files)
+   ```bash
+   npm run cleanup
+   ```
+
+3. **Install dependencies**
    ```bash
    npm install
    ```
 
-3. **Set up environment variables**
+4. **Set up environment variables**
    ```bash
    cp .env.example .env
    ```
    Edit the `.env` file with your configuration (see [Environment Variables](#environment-variables) section)
 
-4. **Validate your configuration** (optional but recommended)
+5. **Validate your configuration** (optional but recommended)
    ```bash
    npm run validate-config
    ```
 
-5. **Start the bot**
+6. **Start the bot**
    ```bash
    npm start
    ```
 
-   For development:
+   For production:
    ```bash
-   npm run dev
+   npm run prod
    ```
 
 ## 🔧 Environment Variables
@@ -120,46 +125,44 @@ All variables have sensible defaults, but you can customize:
 
 ## 🚀 Quick Start
 
-### **Development**
+### **Production Deployment**
 ```bash
 # Clone repository
 git clone https://github.com/revcodeshq/BBGbot.git
 cd BBGbot
 
-# Install dependencies
+# Clean up development files (removes dev dependencies, test files, docs)
+npm run cleanup
+
+# Install production dependencies only
+npm install --production
+
+# Configure environment
+cp .env.example .env
+# Edit .env with your production values
+
+# Validate configuration
+npm run validate-config
+
+# Start in production mode
+npm run prod
+```
+
+### **Development Setup**
+```bash
+# Clone repository
+git clone https://github.com/revcodeshq/BBGbot.git
+cd BBGbot
+
+# Install all dependencies (including dev tools)
 npm install
 
 # Configure environment
 cp .env.example .env
-# Edit .env with your values
+# Edit .env with your development values
 
 # Start development server
 npm run dev
-```
-
-### **Production Deployment**
-```bash
-# Using Docker Compose (Recommended)
-docker-compose up -d
-
-# Using Docker
-docker build -t bbg-discord-bot .
-docker run -d --name bbg-bot --env-file .env.production bbg-discord-bot
-
-# Manual deployment
-npm run prod
-```
-
-### **Health Checks**
-```bash
-# Check bot health
-npm run health-check
-
-# Validate production environment
-npm run validate-production
-
-# Docker health check
-docker-compose exec bbg-bot npm run health-check
 ```
 
 ## 🎯 Usage

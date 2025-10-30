@@ -620,7 +620,7 @@ client.once('clientReady', async () => {
 	if (mongoConnected) {
 		// 1. Start the Announcement Scheduler (runs every minute)
 		console.log('[Scheduler] Background announcement checker started.');
-		setInterval(() => checkSchedules(client), 10 * 1000);
+		setInterval(() => checkSchedules(client), get('advanced.schedulerInterval'));
 
 		// 2. Start the Nickname Sync (runs every 10 minutes)
 		console.log('[Nickname Sync] Background checker started.');
@@ -787,7 +787,7 @@ client.once('clientReady', async () => {
     // Run once on startup, then every 5 minutes (only if MongoDB is connected)
     if (mongoConnected) {
         updateEventScheduleEmbed();
-        setInterval(updateEventScheduleEmbed, 5 * 60 * 1000);
+        setInterval(updateEventScheduleEmbed, get('advanced.eventUpdateInterval'));
     } else {
         console.log('[Startup] Event schedule updater delayed - MongoDB not connected');
     }

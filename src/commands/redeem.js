@@ -24,6 +24,10 @@ module.exports = {
     async execute(interaction) {
         const startTime = Date.now();
         console.log('[DEBUG] redeem_batch execute called by', interaction.user?.tag, 'in guild', interaction.guild?.id);
+        
+        // Create a message that we'll use for updates
+        let progressMessage = null;
+        
         try {
             // Track command usage
             metrics.trackCommand('redeem_batch', interaction.user.id, 0, true);

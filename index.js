@@ -17,7 +17,7 @@ const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fet
 const logger = require('./src/utils/logger');
 const productionLogger = require('./src/utils/production-logger');
 const ProductionValidator = require('./src/utils/production-validator');
-const HealthCheckSystem = require('./src/utils/health-check');
+
 const { brandingText } = require('./src/utils/branding.js');
 const { getFurnaceLevelName } = require('./src/utils/game-utils.js');
 const { validateConfig, get } = require('./src/utils/config');
@@ -139,7 +139,7 @@ async function initializeBot() {
         console.log('[Startup] Bot initialization completed successfully');
         
         // Initialize health check system
-        client.healthCheck = new HealthCheckSystem(client);
+
         productionLogger.info('Health check system initialized');
         
         // Set up graceful shutdown handlers

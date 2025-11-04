@@ -7,6 +7,7 @@ const { ErrorHandler } = require('./error-handler');
 const { metrics } = require('./metrics');
 const { performanceMonitor } = require('./performance-monitor');
 const { smartRateLimiter } = require('./smart-rate-limiter');
+const commandProcessor = require('./command-processor');
 
 class InteractionHandler {
     /**
@@ -55,14 +56,31 @@ class InteractionHandler {
                 }
             }
 
-            // Execute the command function
-            const result = await command.execute(interaction);
+            // Queue and execute the command through the command processor
+            const result = await commandProcessor.processCommand(
+                commandName,
+                userId,
+                async () => {
+                    const cmdResult = await command.execute(interaction);
+                    const executionTime = Date.now() - startTime;
+                    metrics.trackCommand(commandName, userId, executionTime, true);
+                    performanceMonitor.trackResponseTime(commandName, executionTime);
+                    smartRateLimiter.recordSuccess(`${commandName}:${userId}`, executionTime);
+                    return cmdResult;
+                }
+            );
 
-            // Track successful execution
-            const executionTime = Date.now() - startTime;
-            metrics.trackCommand(commandName, userId, executionTime, true);
-            performanceMonitor.trackResponseTime(commandName, executionTime);
-            smartRateLimiter.recordSuccess(`${commandName}:${userId}`, executionTime);
+            // If command is queued, update the user
+            const queueStatus = commandProcessor.getQueueStatus(commandName);
+            if (queueStatus.queueLength > 0) {
+                const position = queueStatus.queueLength;
+                await this.safeReply(interaction, {
+                    content: `⏳ Command queued. Position: ${position}`,
+                    ephemeral: true
+                });
+            }
+            
+            return result;
 
             return result;
             

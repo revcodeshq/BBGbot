@@ -408,9 +408,9 @@ class GiftCodeRedemptionService {
      * @returns {number} Delay in milliseconds
      */
     calculateCaptchaDelay(consecutiveErrors, attempt) {
-        const baseDelay = 2000;
-        const errorMultiplier = Math.min(consecutiveErrors + 1, 5);
-        const attemptMultiplier = Math.min(attempt + 1, 3);
+        const baseDelay = 1000; // Reduced from 2000ms
+        const errorMultiplier = Math.min(consecutiveErrors + 1, 3); // Reduced from 5
+        const attemptMultiplier = Math.min(attempt + 1, 2); // Reduced from 3
         return baseDelay * errorMultiplier * attemptMultiplier;
     }
 
@@ -435,10 +435,10 @@ class GiftCodeRedemptionService {
      */
     calculateRetryDelay(attempt, errorType) {
         const baseDelays = {
-            'captcha': 8000,  // Longer delay for CAPTCHA rate limits
-            'auth': 5000,     // Medium delay for auth issues
-            'network': 3000,  // Standard delay for network issues
-            'other': 4000     // Default delay
+            'captcha': 4000,  // Reduced from 8000ms
+            'auth': 3000,     // Reduced from 5000ms
+            'network': 2000,  // Reduced from 3000ms
+            'other': 2500     // Reduced from 4000ms
         };
         
         const baseDelay = baseDelays[errorType] || baseDelays.other;
@@ -478,8 +478,8 @@ class GiftCodeRedemptionService {
         const results = await PerformanceOptimizer.processBatches(
             users,
             async (user) => {
-                // Add longer delay between users to prevent rate limiting
-                await new Promise(resolve => setTimeout(resolve, 5000)); // Increased from 3000ms
+                // Reduced delay between users while maintaining stability
+                await new Promise(resolve => setTimeout(resolve, 2000)); // Reduced from 5000ms
                 const result = await this.processUserRedemption(user, code);
                 processed++;
                 if (progressCallback) {
@@ -487,8 +487,8 @@ class GiftCodeRedemptionService {
                 }
                 return result;
             },
-            1, // Process one at a time to avoid rate limits
-            1  // No concurrency for API calls
+            2, // Process two users at a time
+            2  // Allow 2 concurrent API calls
         );
 
         // Final progress update

@@ -79,11 +79,8 @@ class InteractionHandler {
                     ephemeral: true
                 });
             }
-            
-            return result;
 
             return result;
-            
         } catch (error) {
             const executionTime = Date.now() - startTime;
             
